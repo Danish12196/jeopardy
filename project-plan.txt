@@ -1,0 +1,42 @@
+🔸 Phase 1: MVP
+✅ Admin
+ Create a game (title, categories, questions, house rules)
+
+ Start a game (generates a unique game code)
+
+ Show scoreboard, control animations
+
+✅ Player
+ Join game via code
+
+ Buzz in with mobile device
+
+ View personal score
+
+✅ Game Screen
+ Display Jeopardy board
+
+ Click to reveal questions
+
+ Show who buzzed first
+
+ Admin controls scoring
+
+✅ Realtime
+ WebSocket connection (Socket.io)
+
+ Player joins room
+
+ Buzz-in logic (only first is accepted)
+
+🔸 Phase 2: Enhancements
+ Host multiple concurrent games
+
+ Fancy animations (e.g., flip board, transitions)
+
+ Timer for buzzing
+
+ Daily Double / Final Jeopardy
+
+ Authentication (optional)
+
