@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type GameState = {
   teams: { name: string; score: number }[];
@@ -23,12 +23,50 @@ export default function GameSetup() {
   ]);
   const [values, setValues] = useState([100, 200, 300, 400, 500]);
 
+  const [questionFiles] = useState(["classic.json", "wacky.json"]); // list of files in /public/questions
+  const [selectedFile, setSelectedFile] = useState("classic.json");
+  const [questionSet, setQuestionSet] = useState<any | null>(null);
+  const [customFiles, setCustomFiles] = useState<string[]>([]);
+
+  useEffect(() => {
+    const stored = Object.keys(localStorage)
+      .filter((key) => key.startsWith("custom-questions:"))
+      .map((key) => key.replace("custom-questions:", ""));
+    setCustomFiles(stored);
+  }, []);
+
+  useEffect(() => {
+    const loadFile = async () => {
+      console.log("Loading file:", selectedFile);
+      if (selectedFile.startsWith("custom")) {
+        const data = localStorage.getItem(`custom-questions:${selectedFile}`);
+        console.log("Custom file data:", data);
+        if (data) {
+          const parsed = JSON.parse(data);
+          console.log("Loaded custom file:", parsed);
+          setQuestionSet(parsed);
+          setCategories(parsed.categories.map((cat: any) => cat.title));
+          setValues(parsed.categories[0].questions.map((q: any) => q.value));
+        }
+      } else {
+        const res = await fetch(`/questions/${selectedFile}`);
+        const parsed = await res.json();
+        setQuestionSet(parsed);
+        setCategories(parsed.categories.map((cat: any) => cat.title));
+        setValues(parsed.categories[0].questions.map((q: any) => q.value));
+      }
+    };
+
+    loadFile();
+  }, [selectedFile]);
+
   const startGame = () => {
     const gameState = {
       teams: teams.map((name) => ({ name, score: 0 })),
       categories,
       values,
       usedQuestions: [],
+      questions: questionSet.categories,
     };
     localStorage.setItem("jeopardy-game", JSON.stringify(gameState));
     router.push("/game");
@@ -62,6 +100,62 @@ export default function GameSetup() {
           className="mb-2 p-2 w-full rounded border"
         />
       ))}
+
+      <label className="block mt-4 mb-2 font-semibold">
+        Select Question Set:
+      </label>
+      <select
+        value={selectedFile}
+        onChange={(e) => setSelectedFile(e.target.value)}
+        className="mb-4 p-2 w-full rounded border"
+      >
+        <optgroup label="Built-in">
+          {questionFiles.map((file, i) => (
+            <option key={i} value={file}>
+              {file}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Custom Uploads">
+          {customFiles.map((file, i) => (
+            <option key={i} value={file}>
+              {file}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+
+      <a
+        href="/questions/classic.json"
+        download="classic.json"
+        className="mb-4 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        ⬇ Download Example File
+      </a>
+      <label className="block mt-4 mb-2 font-semibold">
+        Upload Custom File:
+      </label>
+
+      <input
+        type="file"
+        accept=".json"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const text = await file.text();
+          try {
+            const parsed = JSON.parse(text);
+            localStorage.setItem(
+              `custom-questions:${file.name}`,
+              JSON.stringify(parsed)
+            );
+            setCustomFiles((prev) => [...prev, file.name]);
+          } catch (err) {
+            alert("Invalid JSON file.");
+          }
+        }}
+        className="mb-4"
+      />
 
       <label className="block mt-4 mb-2 font-semibold">Categories:</label>
       {categories.map((cat, i) => (

@@ -1,0 +1,184 @@
+{
+  "categories": [
+    {
+      "title": "Science",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What planet is closest to the sun?",
+          "answer": "Mercury"
+        },
+        {
+          "value": 200,
+          "question": "What gas do plants breathe in?",
+          "answer": "Carbon Dioxide"
+        },
+        {
+          "value": 300,
+          "question": "What is H2O more commonly known as?",
+          "answer": "Water"
+        },
+        {
+          "value": 400,
+          "question": "What part of the cell contains DNA?",
+          "answer": "Nucleus"
+        },
+        {
+          "value": 500,
+          "question": "What element has the symbol Fe?",
+          "answer": "Iron"
+        }
+      ]
+    },
+    {
+      "title": "History",
+      "questions": [
+        {
+          "value": 100,
+          "question": "Who was the first U.S. president?",
+          "answer": "George Washington"
+        },
+        {
+          "value": 200,
+          "question": "What year did WW2 end?",
+          "answer": "1945"
+        },
+        {
+          "value": 300,
+          "question": "Who discovered America?",
+          "answer": "Christopher Columbus"
+        },
+        {
+          "value": 400,
+          "question": "What empire was ruled by Julius Caesar?",
+          "answer": "Roman Empire"
+        },
+        {
+          "value": 500,
+          "question": "Which wall fell in 1989?",
+          "answer": "Berlin Wall"
+        }
+      ]
+    },
+    {
+      "title": "Geography",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What is the capital of France?",
+          "answer": "Paris"
+        },
+        {
+          "value": 200,
+          "question": "Which ocean is the largest?",
+          "answer": "Pacific"
+        },
+        {
+          "value": 300,
+          "question": "Which continent is Egypt in?",
+          "answer": "Africa"
+        },
+        {
+          "value": 400,
+          "question": "What U.S. state is Hawaii closest to?",
+          "answer": "California"
+        },
+        {
+          "value": 500,
+          "question": "What country has the most islands?",
+          "answer": "Sweden"
+        }
+      ]
+    },
+    {
+      "title": "Literature",
+      "questions": [
+        {
+          "value": 100,
+          "question": "Who wrote 'Romeo and Juliet'?",
+          "answer": "Shakespeare"
+        },
+        {
+          "value": 200,
+          "question": "What is the wizard's name in Harry Potter?",
+          "answer": "Dumbledore"
+        },
+        {
+          "value": 300,
+          "question": "Author of '1984'?",
+          "answer": "George Orwell"
+        },
+        {
+          "value": 400,
+          "question": "Greek author of 'The Odyssey'?",
+          "answer": "Homer"
+        },
+        {
+          "value": 500,
+          "question": "Who wrote 'Pride and Prejudice'?",
+          "answer": "Jane Austen"
+        }
+      ]
+    },
+    {
+      "title": "Movies",
+      "questions": [
+        {
+          "value": 100,
+          "question": "Who directed 'Titanic'?",
+          "answer": "James Cameron"
+        },
+        {
+          "value": 200,
+          "question": "Who plays Iron Man?",
+          "answer": "Robert Downey Jr."
+        },
+        {
+          "value": 300,
+          "question": "What's the name of the wizard in LOTR?",
+          "answer": "Gandalf"
+        },
+        {
+          "value": 400,
+          "question": "Which film has 'To infinity and beyond'?",
+          "answer": "Toy Story"
+        },
+        {
+          "value": 500,
+          "question": "What is the highest-grossing film ever?",
+          "answer": "Avatar"
+        }
+      ]
+    },
+    {
+      "title": "Music",
+      "questions": [
+        {
+          "value": 100,
+          "question": "Who is the King of Pop?",
+          "answer": "Michael Jackson"
+        },
+        {
+          "value": 200,
+          "question": "Which band wrote 'Hey Jude'?",
+          "answer": "The Beatles"
+        },
+        {
+          "value": 300,
+          "question": "Who sang 'Shake It Off'?",
+          "answer": "Taylor Swift"
+        },
+        {
+          "value": 400,
+          "question": "Which artist is known for 'Blinding Lights'?",
+          "answer": "The Weeknd"
+        },
+        {
+          "value": 500,
+          "question": "Who composed the Four Seasons?",
+          "answer": "Vivaldi"
+        }
+      ]
+    }
+  ]
+}

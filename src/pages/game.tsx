@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 
 type Team = { name: string; score: number };
+type Category = { title: string; questions: Question[] };
+type Question = {
+  question: string;
+  answer: string;
+  value: number;
+};
 type GameState = {
+  questions: Category[];
   teams: Team[];
   categories: string[];
   values: number[];
@@ -46,7 +53,14 @@ export default function GamePage() {
 
   if (!gameState) return <div className="p-4 text-white">Loading game...</div>;
 
-  const { categories, values, teams, usedQuestions } = gameState;
+  const { categories, values, teams, usedQuestions, questions } = gameState;
+
+  const questionData =
+    selectedTile && gameState
+      ? gameState.questions[selectedTile.col]?.questions.find(
+          (q) => q.value === selectedTile.value
+        )
+      : null;
 
   return (
     <div className="min-h-screen bg-[#061A40] text-white p-4">
@@ -102,9 +116,23 @@ export default function GamePage() {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-          <h2 className="text-3xl font-bold mb-6">
-            Question for ${selectedTile.value}
+          <button
+            className="absolute top-4 left-4 bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700"
+            onClick={() => {
+              setSelectedTile(null);
+              setShowAnswer(false);
+            }}
+          >
+            ⬅ Back
+          </button>
+
+          <h2 className="text-3xl font-bold mb-4">
+            ${selectedTile.value} — {categories[selectedTile.col]}
           </h2>
+          <p className="mb-6 text-lg">
+            {questionData?.question || "No question found."}
+          </p>
+
           {!showAnswer ? (
             <button
               className="bg-yellow-300 text-black px-4 py-2 rounded font-bold hover:bg-yellow-400"
@@ -115,8 +143,9 @@ export default function GamePage() {
           ) : (
             <>
               <p className="mb-6 text-lg">
-                This is a sample answer to the question.
+                {questionData?.answer || "No answer available."}
               </p>
+
               <div className="flex gap-4 mb-6 flex-wrap justify-center">
                 {teams.map((team, i) => (
                   <div key={i} className="flex gap-2">

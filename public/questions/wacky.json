@@ -1,0 +1,184 @@
+{
+  "categories": [
+    {
+      "title": "Weird Laws",
+      "questions": [
+        {
+          "value": 100,
+          "question": "In which US state is it illegal to whistle underwater?",
+          "answer": "Vermont"
+        },
+        {
+          "value": 200,
+          "question": "Where is it illegal to eat fried chicken with a fork?",
+          "answer": "Georgia"
+        },
+        {
+          "value": 300,
+          "question": "Where is it illegal for a donkey to sleep in a bathtub?",
+          "answer": "Arizona"
+        },
+        {
+          "value": 400,
+          "question": "Where must witches register with the government?",
+          "answer": "Swaziland"
+        },
+        {
+          "value": 500,
+          "question": "Where is it illegal to forget your wife's birthday?",
+          "answer": "Samoa"
+        }
+      ]
+    },
+    {
+      "title": "Internet History",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What was the first viral video on YouTube?",
+          "answer": "Charlie Bit My Finger"
+        },
+        {
+          "value": 200,
+          "question": "What does 'lol' stand for?",
+          "answer": "Laugh Out Loud"
+        },
+        {
+          "value": 300,
+          "question": "Which meme features a Shiba Inu dog?",
+          "answer": "Doge"
+        },
+        {
+          "value": 400,
+          "question": "What is the name of the dancing baby from the '90s?",
+          "answer": "Baby Cha-Cha-Cha"
+        },
+        {
+          "value": 500,
+          "question": "Which website was founded as 'The Facebook'?",
+          "answer": "Facebook"
+        }
+      ]
+    },
+    {
+      "title": "Food Crimes",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What fruit has been legally classified as a vegetable in the U.S.?",
+          "answer": "Tomato"
+        },
+        {
+          "value": 200,
+          "question": "Which country banned ketchup in school cafeterias?",
+          "answer": "France"
+        },
+        {
+          "value": 300,
+          "question": "What food did a man legally marry in Las Vegas?",
+          "answer": "Pizza"
+        },
+        {
+          "value": 400,
+          "question": "What does SPAM stand for?",
+          "answer": "Spiced Ham"
+        },
+        {
+          "value": 500,
+          "question": "In 2020, a man stole a truck full of what breakfast item?",
+          "answer": "Waffles"
+        }
+      ]
+    },
+    {
+      "title": "Strange Animals",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What animal can survive in space?",
+          "answer": "Tardigrade"
+        },
+        {
+          "value": 200,
+          "question": "Which animal's poop is cube-shaped?",
+          "answer": "Wombat"
+        },
+        {
+          "value": 300,
+          "question": "What animal can sleep for 3 years?",
+          "answer": "Snail"
+        },
+        {
+          "value": 400,
+          "question": "What animal has blue blood?",
+          "answer": "Horseshoe Crab"
+        },
+        {
+          "value": 500,
+          "question": "Which animal can hold its breath for over 90 minutes?",
+          "answer": "Sloth"
+        }
+      ]
+    },
+    {
+      "title": "Unlikely Inventions",
+      "questions": [
+        {
+          "value": 100,
+          "question": "Bubble wrap was originally invented for what purpose?",
+          "answer": "Wallpaper"
+        },
+        {
+          "value": 200,
+          "question": "What was Play-Doh originally used for?",
+          "answer": "Cleaning wallpaper"
+        },
+        {
+          "value": 300,
+          "question": "What did Kleenex tissues originally intend to be used for?",
+          "answer": "Gas mask filters"
+        },
+        {
+          "value": 400,
+          "question": "What popular toy was created as a wallpaper cleaner?",
+          "answer": "Play-Doh"
+        },
+        {
+          "value": 500,
+          "question": "Which popular soft drink was originally marketed as a brain tonic?",
+          "answer": "Coca-Cola"
+        }
+      ]
+    },
+    {
+      "title": "Pop Culture Fails",
+      "questions": [
+        {
+          "value": 100,
+          "question": "Which 2017 Oscar was mistakenly awarded to 'La La Land'?",
+          "answer": "Best Picture"
+        },
+        {
+          "value": 200,
+          "question": "Which band famously lip-synced on live TV and got caught?",
+          "answer": "Milli Vanilli"
+        },
+        {
+          "value": 300,
+          "question": "What movie was a box office disaster starring cats and CGI?",
+          "answer": "Cats (2019)"
+        },
+        {
+          "value": 400,
+          "question": "Which celebrity tried to trademark the word 'Okurrr'?",
+          "answer": "Cardi B"
+        },
+        {
+          "value": 500,
+          "question": "What social network lost over $100B in value in a single day in 2018?",
+          "answer": "Facebook"
+        }
+      ]
+    }
+  ]
+}
