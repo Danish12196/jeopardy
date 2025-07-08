@@ -1,6 +1,13 @@
 "use client";
-import { useRouter } from "next/navigation";
+
+import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export type GameState = {
   teams: { name: string; score: number }[];
@@ -10,7 +17,8 @@ export type GameState = {
 };
 
 export default function GameSetup() {
-  const router = useRouter();
+  const navigate = useNavigate();
+
   const [numTeams, setNumTeams] = useState(2);
   const [teams, setTeams] = useState(["Team 1", "Team 2"]);
   const [categories, setCategories] = useState([
@@ -27,6 +35,9 @@ export default function GameSetup() {
   const [selectedFile, setSelectedFile] = useState("classic.json");
   const [questionSet, setQuestionSet] = useState<any | null>(null);
   const [customFiles, setCustomFiles] = useState<string[]>([]);
+
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
 
   useEffect(() => {
     const stored = Object.keys(localStorage)
@@ -69,14 +80,15 @@ export default function GameSetup() {
       questions: questionSet.categories,
     };
     localStorage.setItem("jeopardy-game", JSON.stringify(gameState));
-    router.push("/game");
+    navigate("/game");
   };
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Jeopardy Game Setup</h1>
+      <h1 className="text-xl">Jeopardy Game Setup</h1>
+
       <label className="block mb-2 font-semibold">Number of Teams:</label>
-      <input
+      <Input
         type="number"
         value={numTeams}
         onChange={(e) => {
@@ -86,10 +98,9 @@ export default function GameSetup() {
         }}
         className="mb-4 p-2 w-full rounded border"
       />
-
       <label className="block mb-2 font-semibold">Team Names:</label>
       {teams.map((team, i) => (
-        <input
+        <Input
           key={i}
           value={team}
           onChange={(e) => {
@@ -101,9 +112,20 @@ export default function GameSetup() {
         />
       ))}
 
+      <Tabs defaultValue="template" className=" w-[100%]">
+        <TabsList>
+          <TabsTrigger value="template">Use a Template</TabsTrigger>
+          <TabsTrigger value="scratch">Create from scratch</TabsTrigger>
+        </TabsList>
+        <TabsContent value="template">
+          Make changes to your account here.
+        </TabsContent>
+        <TabsContent value="scratch">Change your password here.</TabsContent>
+      </Tabs>
       <label className="block mt-4 mb-2 font-semibold">
         Select Question Set:
       </label>
+
       <select
         value={selectedFile}
         onChange={(e) => setSelectedFile(e.target.value)}
@@ -124,7 +146,6 @@ export default function GameSetup() {
           ))}
         </optgroup>
       </select>
-
       <a
         href="/questions/classic.json"
         download="classic.json"
@@ -135,8 +156,7 @@ export default function GameSetup() {
       <label className="block mt-4 mb-2 font-semibold">
         Upload Custom File:
       </label>
-
-      <input
+      <Input
         type="file"
         accept=".json"
         onChange={async (e) => {
@@ -156,10 +176,9 @@ export default function GameSetup() {
         }}
         className="mb-4"
       />
-
       <label className="block mt-4 mb-2 font-semibold">Categories:</label>
       {categories.map((cat, i) => (
-        <input
+        <Input
           key={i}
           value={cat}
           onChange={(e) => {
@@ -170,11 +189,10 @@ export default function GameSetup() {
           className="mb-2 p-2 w-full rounded border"
         />
       ))}
-
       <label className="block mt-4 mb-2 font-semibold">
         Row Values (comma separated):
       </label>
-      <input
+      <Input
         value={values.join(",")}
         onChange={(e) => {
           const vals = e.target.value.split(",").map((v) => parseInt(v.trim()));
@@ -182,13 +200,12 @@ export default function GameSetup() {
         }}
         className="mb-4 p-2 w-full rounded border"
       />
-
-      <button
+      <Button
         onClick={startGame}
         className="bg-yellow-400 hover:bg-yellow-500 px-4 py-2 rounded font-bold"
       >
         Start Game
-      </button>
+      </Button>
     </div>
   );
 }

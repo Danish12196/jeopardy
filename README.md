@@ -1,6 +1,6 @@
 # Jeopardy Game - UNDER CONSTRUCTION
 
-A customizable Jeopardy game built with [Next.js](https://nextjs.org), supporting team play, categories, and scoring.
+A customizable Jeopardy game built with React+Vite, supporting team play, categories, and scoring.
 
 ## Features
 
