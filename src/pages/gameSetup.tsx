@@ -84,7 +84,7 @@ export default function GameSetup() {
   };
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
+    <div className="flex flex-col h-screen w-full p-4 max-w-2xl mx-auto">
       <h1 className="text-xl">Jeopardy Game Setup</h1>
 
       <label className="block mb-2 font-semibold">Number of Teams:</label>
@@ -115,91 +115,47 @@ export default function GameSetup() {
       <Tabs defaultValue="template" className=" w-[100%]">
         <TabsList>
           <TabsTrigger value="template">Use a Template</TabsTrigger>
-          <TabsTrigger value="scratch">Create from scratch</TabsTrigger>
+          <TabsTrigger value="scratch" disabled>
+            Create from scratch
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="template">
-          Make changes to your account here.
+          <label className="block mt-4 mb-2 font-semibold">
+            Select Template:
+          </label>
+
+          <label className="block mt-4 mb-2 font-semibold">
+            Template Categories:
+          </label>
+          {categories.map((cat, i) => (
+            <Input
+              key={i}
+              value={cat}
+              onChange={(e) => {
+                const newCats = [...categories];
+                newCats[i] = e.target.value;
+                setCategories(newCats);
+              }}
+              className="mb-2 p-2 w-full rounded border"
+            />
+          ))}
+          <label className="block mt-4 mb-2 font-semibold">
+            Row Values (comma separated):
+          </label>
+          <Input
+            value={values.join(",")}
+            onChange={(e) => {
+              const vals = e.target.value
+                .split(",")
+                .map((v) => parseInt(v.trim()));
+              setValues(vals);
+            }}
+            className="mb-4 p-2 w-full rounded border"
+          />
         </TabsContent>
         <TabsContent value="scratch">Change your password here.</TabsContent>
       </Tabs>
-      <label className="block mt-4 mb-2 font-semibold">
-        Select Question Set:
-      </label>
 
-      <select
-        value={selectedFile}
-        onChange={(e) => setSelectedFile(e.target.value)}
-        className="mb-4 p-2 w-full rounded border"
-      >
-        <optgroup label="Built-in">
-          {questionFiles.map((file, i) => (
-            <option key={i} value={file}>
-              {file}
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="Custom Uploads">
-          {customFiles.map((file, i) => (
-            <option key={i} value={file}>
-              {file}
-            </option>
-          ))}
-        </optgroup>
-      </select>
-      <a
-        href="/questions/classic.json"
-        download="classic.json"
-        className="mb-4 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        ⬇ Download Example File
-      </a>
-      <label className="block mt-4 mb-2 font-semibold">
-        Upload Custom File:
-      </label>
-      <Input
-        type="file"
-        accept=".json"
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          const text = await file.text();
-          try {
-            const parsed = JSON.parse(text);
-            localStorage.setItem(
-              `custom-questions:${file.name}`,
-              JSON.stringify(parsed)
-            );
-            setCustomFiles((prev) => [...prev, file.name]);
-          } catch (err) {
-            alert("Invalid JSON file.");
-          }
-        }}
-        className="mb-4"
-      />
-      <label className="block mt-4 mb-2 font-semibold">Categories:</label>
-      {categories.map((cat, i) => (
-        <Input
-          key={i}
-          value={cat}
-          onChange={(e) => {
-            const newCats = [...categories];
-            newCats[i] = e.target.value;
-            setCategories(newCats);
-          }}
-          className="mb-2 p-2 w-full rounded border"
-        />
-      ))}
-      <label className="block mt-4 mb-2 font-semibold">
-        Row Values (comma separated):
-      </label>
-      <Input
-        value={values.join(",")}
-        onChange={(e) => {
-          const vals = e.target.value.split(",").map((v) => parseInt(v.trim()));
-          setValues(vals);
-        }}
-        className="mb-4 p-2 w-full rounded border"
-      />
       <Button
         onClick={startGame}
         className="bg-yellow-400 hover:bg-yellow-500 px-4 py-2 rounded font-bold"
