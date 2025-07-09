@@ -1,66 +1,182 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-type Team = { name: string; score: number };
-type Category = { title: string; questions: Question[] };
-type Question = {
-  question: string;
-  answer: string;
-  value: number;
-};
-type GameState = {
-  questions: Category[];
-  teams: Team[];
-  categories: string[];
-  values: number[];
-  usedQuestions: string[];
-};
+import { use, useEffect, useState } from "react";
+import superuserClient from "@/super-user.js";
 
 export default function GamePage() {
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [teams, setTeams] = useState<
+    { id: string; name: string; score: number; isActive: boolean }[]
+  >([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<
+    { id: string; value: number; question: string; answer: string }[][]
+  >([]);
+
+  const [values] = useState([100, 200, 300, 400, 500]);
+  const [currentTeam, setCurrentTeam] = useState<string | null>(null);
+  const [currentTeamScore, setCurrentTeamScore] = useState(0);
+  const [usedQuestions, setUsedQuestions] = useState<string[]>([]);
   const [selectedTile, setSelectedTile] = useState<{
     row: number;
     col: number;
     value: number;
   } | null>(null);
-  const [showAnswer, setShowAnswer] = useState(false);
+  const stored = localStorage.getItem("game-id");
+  const gameId = stored || "schbbutohntka8j";
+  var teamRecords: any[] = [];
 
   useEffect(() => {
-    const stored = localStorage.getItem("jeopardy-game");
-    if (stored) setGameState(JSON.parse(stored));
+    const getGameInfo = async () => {
+      const stored = localStorage.getItem("game-id");
+      const gameId = stored || "schbbutohntka8j";
+
+      const game = await superuserClient.collection("games").getOne(gameId);
+      console.log("Game data:", game);
+      const template = await superuserClient
+        .collection("game_templates")
+        .getOne(game.template);
+
+      const categoryRecords = await Promise.all(
+        template.categories.map((id: string) =>
+          superuserClient.collection("question_categories").getOne(id)
+        )
+      );
+
+      const allQuestions = await superuserClient
+        .collection("questions")
+        .getFullList({
+          filter: template.questions
+            .map((id: string) => `id="${id}"`)
+            .join(" || "),
+        });
+
+      // Group and sort questions by difficulty (1–10 → 100–500)
+      const grouped: {
+        id: string;
+        value: number;
+        question: string;
+        answer: string;
+      }[][] = categoryRecords.map((cat) => {
+        const qs = allQuestions
+          .filter((q) => q.category === cat.id)
+          .sort((a, b) => a.difficulty - b.difficulty)
+          .slice(0, 5)
+          .map((q, i) => ({
+            id: q.id,
+            question: q.question,
+            answer: q.answer,
+            value: (i + 1) * 100,
+          }));
+
+        return qs;
+      });
+
+      teamRecords = await Promise.all(
+        game.teams.map((id: string) =>
+          superuserClient.collection("teams").getOne(id)
+        )
+      );
+
+      setCategories(categoryRecords.map((c) => c.name));
+      setQuestions(grouped);
+      setTeams(
+        teamRecords.map((t) => ({
+          id: t.id,
+          name: t.name,
+          score: game.teamScores.find((ts: any) => ts.id === t.id)?.score || 0,
+          isActive: false,
+        }))
+      );
+      setUsedQuestions(game.answeredQuestions || []);
+    };
+
+    getGameInfo();
   }, []);
 
-  const markQuestionUsed = (row: number, col: number) => {
-    if (!gameState) return;
-    const key = `${row}-${col}`;
-    const updated = {
-      ...gameState,
-      usedQuestions: [...gameState.usedQuestions, key],
-    };
-    localStorage.setItem("jeopardy-game", JSON.stringify(updated));
-    setGameState(updated);
+  useEffect(() => {
+    if (!selectedTile) {
+      // superuserClient.collection("games").update(gameId, {
+      //   currentActiveQuestion: null,
+      // });
+    } else {
+      const currentQuestion =
+        selectedTile && questions[selectedTile.col]?.[selectedTile.row];
+
+      superuserClient.collection("games").update(gameId, {
+        currentActiveQuestion: currentQuestion?.id || null,
+      });
+    }
+  }, [selectedTile]);
+
+  const subscribeToEvents = async () => {
+    await superuserClient
+      .collection("games")
+      .subscribe(gameId, function (event) {
+        console.log("Game event received:");
+        console.log(event.action);
+        console.log(event.record);
+        const game = event.record;
+        setUsedQuestions(game.answeredQuestions);
+        // After questions and categories are already set
+        // if (game.currentActiveQuestion) {
+        //   for (let col = 0; col < questions.length; col++) {
+        //     for (let row = 0; row < questions[col].length; row++) {
+        //       const q = questions[col][row];
+        //       if (q.id === game.currentActiveQuestion) {
+        //         setSelectedTile({ row, col, value: q.value });
+        //         return;
+        //       }
+        //     }
+        //   }
+        // }
+        console.log("Teams:", game.teamScores);
+        console.log("Team records:", teamRecords);
+        // setTeams(
+        //   teamRecords.map((t) => ({
+        //     id: t.id,
+        //     name: t.name,
+        //     score:
+        //       game.teamScores.find((ts: any) => ts.id === t.id)?.score || 0,
+        //     isActive: false,
+        //   }))
+        // );
+      });
+  };
+  subscribeToEvents();
+
+  const updateUsedQuestions = async (row: number, col: number) => {
+    const questionId = questions[col]?.[row]?.id;
+    if (!questionId || usedQuestions.includes(questionId)) return;
+
+    const updated = [...usedQuestions, questionId];
+    setUsedQuestions(updated);
+
+    try {
+      await superuserClient.collection("games").update(gameId, {
+        answeredQuestions: updated,
+      });
+    } catch (err) {
+      console.error("Failed to update usedQuestions in DB:", err);
+    }
   };
 
-  const updateTeamScore = (index: number, delta: number) => {
-    if (!gameState) return;
-    const teams = [...gameState.teams];
-    teams[index].score += delta;
-    const updated = { ...gameState, teams };
-    localStorage.setItem("jeopardy-game", JSON.stringify(updated));
-    setGameState(updated);
+  const updateTeamScore = async (teamIndex: number, value: number) => {
+    const newTeams = [...teams];
+    newTeams[teamIndex].score += value;
+    setTeams(newTeams);
+    console.log("Updated team scores:", newTeams);
+    try {
+      await superuserClient.collection("games").update(gameId, {
+        teamScores: newTeams.map((t) => ({ id: t.id, score: t.score })),
+      });
+    } catch (err) {
+      console.error("Failed to update team score in DB:", err);
+    }
   };
-
-  if (!gameState) return <div className="p-4 text-white">Loading game...</div>;
-
-  const { categories, values, teams, usedQuestions, questions } = gameState;
 
   const questionData =
-    selectedTile && gameState
-      ? gameState.questions[selectedTile.col]?.questions.find(
-          (q) => q.value === selectedTile.value
-        )
-      : null;
+    selectedTile && questions[selectedTile.col]?.[selectedTile.row];
 
   return (
     <div className="min-h-screen bg-[#061A40] text-white p-4">
@@ -69,7 +185,11 @@ export default function GamePage() {
         {teams.map((team, i) => (
           <div
             key={i}
-            className="bg-[#0B3D91] px-4 py-2 rounded border border-yellow-400 text-center"
+            className={
+              team.isActive
+                ? "bg-[#276adc] px-4 py-2 rounded border border-yellow-400 text-center"
+                : "bg-[#0B3D91] px-4 py-2 rounded border border-yellow-400 text-center"
+            }
           >
             <h2 className="font-bold">{team.name}</h2>
             <p className="text-yellow-300 text-xl">{team.score}</p>
@@ -93,12 +213,12 @@ export default function GamePage() {
               const row = Math.floor(i / 6);
               const col = i % 6;
               const value = values[row];
-              const key = `${row}-${col}`;
-              const isUsed = usedQuestions.includes(key);
+              const q = questions[col]?.[row];
+              const isUsed = usedQuestions.includes(q?.id || "");
 
               return (
                 <div
-                  key={key}
+                  key={q?.id || `${row}-${col}`}
                   onClick={() =>
                     !isUsed && setSelectedTile({ row, col, value })
                   }
@@ -167,7 +287,7 @@ export default function GamePage() {
               <button
                 className="bg-yellow-300 text-black px-4 py-2 rounded font-bold hover:bg-yellow-400"
                 onClick={() => {
-                  markQuestionUsed(selectedTile.row, selectedTile.col);
+                  updateUsedQuestions(selectedTile.row, selectedTile.col);
                   setSelectedTile(null);
                   setShowAnswer(false);
                 }}

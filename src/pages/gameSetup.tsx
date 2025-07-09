@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AddCategoryForm from "./AddCategoryForm";
+import AddBulkQuestionForm from "./AddBulkQuestionForm";
+import SelectTemplate from "./SelectTemplate";
 
 export type GameState = {
   teams: { name: string; score: number }[];
@@ -31,60 +34,10 @@ export default function GameSetup() {
   ]);
   const [values, setValues] = useState([100, 200, 300, 400, 500]);
 
-  const [questionFiles] = useState(["classic.json", "wacky.json"]); // list of files in /public/questions
-  const [selectedFile, setSelectedFile] = useState("classic.json");
   const [questionSet, setQuestionSet] = useState<any | null>(null);
-  const [customFiles, setCustomFiles] = useState<string[]>([]);
-
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("");
-
-  useEffect(() => {
-    const stored = Object.keys(localStorage)
-      .filter((key) => key.startsWith("custom-questions:"))
-      .map((key) => key.replace("custom-questions:", ""));
-    setCustomFiles(stored);
-  }, []);
-
-  useEffect(() => {
-    const loadFile = async () => {
-      console.log("Loading file:", selectedFile);
-      if (selectedFile.startsWith("custom")) {
-        const data = localStorage.getItem(`custom-questions:${selectedFile}`);
-        console.log("Custom file data:", data);
-        if (data) {
-          const parsed = JSON.parse(data);
-          console.log("Loaded custom file:", parsed);
-          setQuestionSet(parsed);
-          setCategories(parsed.categories.map((cat: any) => cat.title));
-          setValues(parsed.categories[0].questions.map((q: any) => q.value));
-        }
-      } else {
-        const res = await fetch(`/questions/${selectedFile}`);
-        const parsed = await res.json();
-        setQuestionSet(parsed);
-        setCategories(parsed.categories.map((cat: any) => cat.title));
-        setValues(parsed.categories[0].questions.map((q: any) => q.value));
-      }
-    };
-
-    loadFile();
-  }, [selectedFile]);
-
-  const startGame = () => {
-    const gameState = {
-      teams: teams.map((name) => ({ name, score: 0 })),
-      categories,
-      values,
-      usedQuestions: [],
-      questions: questionSet.categories,
-    };
-    localStorage.setItem("jeopardy-game", JSON.stringify(gameState));
-    navigate("/game");
-  };
 
   return (
-    <div className="flex flex-col h-screen w-full p-4 max-w-2xl mx-auto">
+    <div className="flex flex-col h-screen w-full p-4 mx-auto">
       <h1 className="text-xl">Jeopardy Game Setup</h1>
 
       <label className="block mb-2 font-semibold">Number of Teams:</label>
@@ -112,56 +65,31 @@ export default function GameSetup() {
         />
       ))}
 
-      <Tabs defaultValue="template" className=" w-[100%]">
+      <Tabs defaultValue="use-template" className=" w-[100%]">
         <TabsList>
-          <TabsTrigger value="template">Use a Template</TabsTrigger>
-          <TabsTrigger value="scratch" disabled>
-            Create from scratch
+          <TabsTrigger value="use-template">Use a Template</TabsTrigger>
+          <TabsTrigger value="create-template" disabled>
+            Create a template
+          </TabsTrigger>
+          <TabsTrigger value="add-categories">Add New Categories</TabsTrigger>
+          <TabsTrigger value="add-bulk-questions">
+            Add Bulk Questions
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="template">
-          <label className="block mt-4 mb-2 font-semibold">
-            Select Template:
-          </label>
-
-          <label className="block mt-4 mb-2 font-semibold">
-            Template Categories:
-          </label>
-          {categories.map((cat, i) => (
-            <Input
-              key={i}
-              value={cat}
-              onChange={(e) => {
-                const newCats = [...categories];
-                newCats[i] = e.target.value;
-                setCategories(newCats);
-              }}
-              className="mb-2 p-2 w-full rounded border"
-            />
-          ))}
-          <label className="block mt-4 mb-2 font-semibold">
-            Row Values (comma separated):
-          </label>
-          <Input
-            value={values.join(",")}
-            onChange={(e) => {
-              const vals = e.target.value
-                .split(",")
-                .map((v) => parseInt(v.trim()));
-              setValues(vals);
-            }}
-            className="mb-4 p-2 w-full rounded border"
-          />
+        <TabsContent value="use-template">
+          <SelectTemplate />
         </TabsContent>
-        <TabsContent value="scratch">Change your password here.</TabsContent>
-      </Tabs>
+        <TabsContent value="use-template">
+          Change your password here.
+        </TabsContent>
+        <TabsContent value="add-categories">
+          <AddCategoryForm />
+        </TabsContent>
 
-      <Button
-        onClick={startGame}
-        className="bg-yellow-400 hover:bg-yellow-500 px-4 py-2 rounded font-bold"
-      >
-        Start Game
-      </Button>
+        <TabsContent value="add-bulk-questions">
+          <AddBulkQuestionForm />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
