@@ -1,9 +1,13 @@
-// src/superuser.js
 import PocketBase from "pocketbase";
 
-const superuserClient = new PocketBase("http://127.0.0.1:8090");
+const superuserClient = new PocketBase(import.meta.env.VITE_PB_URL);
 superuserClient.autoCancellation(false);
 
-superuserClient.authStore.save(import.meta.env.VITE_PB_SUPERUSER_TOKEN);
+await superuserClient
+  .collection("_superusers")
+  .authWithPassword(
+    import.meta.env.VITE_PB_SUPERUSER_EMAIL,
+    import.meta.env.VITE_PB_SUPERUSER_PASSWORD
+  );
 
 export default superuserClient;

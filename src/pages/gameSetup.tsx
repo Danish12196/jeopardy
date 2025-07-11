@@ -1,11 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AddCategoryForm from "./AddCategoryForm";
@@ -20,21 +16,8 @@ export type GameState = {
 };
 
 export default function GameSetup() {
-  const navigate = useNavigate();
-
   const [numTeams, setNumTeams] = useState(2);
   const [teams, setTeams] = useState(["Team 1", "Team 2"]);
-  const [categories, setCategories] = useState([
-    "Cat 1",
-    "Cat 2",
-    "Cat 3",
-    "Cat 4",
-    "Cat 5",
-    "Cat 6",
-  ]);
-  const [values, setValues] = useState([100, 200, 300, 400, 500]);
-
-  const [questionSet, setQuestionSet] = useState<any | null>(null);
 
   return (
     <div className="flex flex-col h-screen w-full p-4 mx-auto">

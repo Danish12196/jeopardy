@@ -13,9 +13,7 @@ import {
 
 export default function SelectTemplate() {
   const navigate = useNavigate();
-
-  const [numTeams, setNumTeams] = useState(2);
-  const [teams, setTeams] = useState(["Team 1", "Team 2"]);
+  const teams = ["Team 1", "Team 2"];
   const [categories, setCategories] = useState([
     "Cat 1",
     "Cat 2",
@@ -26,7 +24,6 @@ export default function SelectTemplate() {
   ]);
   const [values, setValues] = useState([100, 200, 300, 400, 500]);
 
-  const [questionSet, setQuestionSet] = useState<any | null>(null);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
 

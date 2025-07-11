@@ -1,6 +1,8 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+
 import superuserClient from "@/super-user.js";
 
 export default function GamePage() {
@@ -14,25 +16,25 @@ export default function GamePage() {
   >([]);
 
   const [values] = useState([100, 200, 300, 400, 500]);
-  const [currentTeam, setCurrentTeam] = useState<string | null>(null);
-  const [currentTeamScore, setCurrentTeamScore] = useState(0);
   const [usedQuestions, setUsedQuestions] = useState<string[]>([]);
   const [selectedTile, setSelectedTile] = useState<{
     row: number;
     col: number;
     value: number;
   } | null>(null);
-  const stored = localStorage.getItem("game-id");
-  const gameId = stored || "schbbutohntka8j";
-  var teamRecords: any[] = [];
+
+  const [gameId, setGameId] = useState<string | null>(null);
+
+  const { uniqueID } = useParams();
 
   useEffect(() => {
     const getGameInfo = async () => {
-      const stored = localStorage.getItem("game-id");
-      const gameId = stored || "schbbutohntka8j";
-
-      const game = await superuserClient.collection("games").getOne(gameId);
-      console.log("Game data:", game);
+      console.log("Fetching game info for uniqueID:", uniqueID);
+      const gameList = await superuserClient.collection("games").getFullList({
+        filter: `uniqueID = "${uniqueID}"`,
+      });
+      const game = gameList[0]; // assuming uniqueID is truly unique
+      setGameId(game.id);
       const template = await superuserClient
         .collection("game_templates")
         .getOne(game.template);
@@ -72,7 +74,7 @@ export default function GamePage() {
         return qs;
       });
 
-      teamRecords = await Promise.all(
+      const teamRecords = await Promise.all(
         game.teams.map((id: string) =>
           superuserClient.collection("teams").getOne(id)
         )
@@ -84,8 +86,8 @@ export default function GamePage() {
         teamRecords.map((t) => ({
           id: t.id,
           name: t.name,
-          score: game.teamScores.find((ts: any) => ts.id === t.id)?.score || 0,
-          isActive: false,
+          score: game.teamScores?.find((ts: any) => ts.id === t.id)?.score || 0,
+          isActive: game.currentActiveTeam === t.id,
         }))
       );
       setUsedQuestions(game.answeredQuestions || []);
@@ -102,76 +104,95 @@ export default function GamePage() {
     } else {
       const currentQuestion =
         selectedTile && questions[selectedTile.col]?.[selectedTile.row];
-
+      if (!gameId) return;
       superuserClient.collection("games").update(gameId, {
         currentActiveQuestion: currentQuestion?.id || null,
       });
     }
   }, [selectedTile]);
 
-  const subscribeToEvents = async () => {
-    await superuserClient
-      .collection("games")
-      .subscribe(gameId, function (event) {
-        console.log("Game event received:");
-        console.log(event.action);
-        console.log(event.record);
-        const game = event.record;
-        setUsedQuestions(game.answeredQuestions);
-        // After questions and categories are already set
-        // if (game.currentActiveQuestion) {
-        //   for (let col = 0; col < questions.length; col++) {
-        //     for (let row = 0; row < questions[col].length; row++) {
-        //       const q = questions[col][row];
-        //       if (q.id === game.currentActiveQuestion) {
-        //         setSelectedTile({ row, col, value: q.value });
-        //         return;
-        //       }
-        //     }
-        //   }
-        // }
-        console.log("Teams:", game.teamScores);
-        console.log("Team records:", teamRecords);
-        // setTeams(
-        //   teamRecords.map((t) => ({
-        //     id: t.id,
-        //     name: t.name,
-        //     score:
-        //       game.teamScores.find((ts: any) => ts.id === t.id)?.score || 0,
-        //     isActive: false,
-        //   }))
-        // );
-      });
-  };
-  subscribeToEvents();
+  useEffect(() => {
+    const subscribeToEvents = async () => {
+      if (!gameId) return;
+      await superuserClient
+        .collection("games")
+        .subscribe(gameId, function (event) {
+          const game = event.record;
+          setUsedQuestions(game.answeredQuestions);
+
+          setTeams((prevTeams) =>
+            prevTeams.map((team) => {
+              const matchingScore = game.teamScores?.find(
+                (ts: any) => ts.id === team.id
+              );
+              return {
+                ...team,
+                score: matchingScore?.score ?? team.score,
+                isActive: game.currentActiveTeam === team.id,
+              };
+            })
+          );
+        });
+    };
+
+    if (gameId) {
+      subscribeToEvents();
+    }
+  }, [gameId]);
 
   const updateUsedQuestions = async (row: number, col: number) => {
     const questionId = questions[col]?.[row]?.id;
-    if (!questionId || usedQuestions.includes(questionId)) return;
+    const currentUsed = usedQuestions ?? [];
 
-    const updated = [...usedQuestions, questionId];
+    if (!questionId || currentUsed.includes(questionId)) return;
+    const updated = [...currentUsed, questionId];
     setUsedQuestions(updated);
 
-    try {
-      await superuserClient.collection("games").update(gameId, {
-        answeredQuestions: updated,
-      });
-    } catch (err) {
-      console.error("Failed to update usedQuestions in DB:", err);
+    if (gameId) {
+      try {
+        await superuserClient.collection("games").update(gameId, {
+          answeredQuestions: updated,
+        });
+      } catch (err) {
+        console.error("Failed to update usedQuestions in DB:", err);
+      }
     }
   };
 
   const updateTeamScore = async (teamIndex: number, value: number) => {
     const newTeams = [...teams];
     newTeams[teamIndex].score += value;
+
     setTeams(newTeams);
-    console.log("Updated team scores:", newTeams);
-    try {
-      await superuserClient.collection("games").update(gameId, {
-        teamScores: newTeams.map((t) => ({ id: t.id, score: t.score })),
-      });
-    } catch (err) {
-      console.error("Failed to update team score in DB:", err);
+    if (gameId) {
+      try {
+        await superuserClient.collection("games").update(gameId, {
+          teamScores: newTeams.map((t) => ({ id: t.id, score: t.score })),
+        });
+      } catch (err) {
+        console.error("Failed to update team score in DB:", err);
+      }
+    }
+  };
+
+  const updateTeamActiveStatus = async (teamId: string) => {
+    setTeams((prevTeams) =>
+      prevTeams.map((team) => {
+        return {
+          ...team,
+          isActive: teamId === team.id,
+        };
+      })
+    );
+
+    if (gameId) {
+      try {
+        await superuserClient.collection("games").update(gameId, {
+          currentActiveTeam: teamId,
+        });
+      } catch (err) {
+        console.error("Failed to update team score in DB:", err);
+      }
     }
   };
 
@@ -179,31 +200,32 @@ export default function GamePage() {
     selectedTile && questions[selectedTile.col]?.[selectedTile.row];
 
   return (
-    <div className="min-h-screen bg-[#061A40] text-white p-4">
+    <div className="min-h-screen flex flex-col bg-blue-950 text-white p-4">
       {/* Scoreboard */}
       <div className="flex justify-center gap-4 mb-6">
-        {teams.map((team, i) => (
+        {teams.map((team) => (
           <div
-            key={i}
-            className={
+            key={team.id}
+            className={`rounded px-6 py-4 text-center border transition-colors duration-200 cursor-pointer ${
               team.isActive
-                ? "bg-[#276adc] px-4 py-2 rounded border border-yellow-400 text-center"
-                : "bg-[#0B3D91] px-4 py-2 rounded border border-yellow-400 text-center"
-            }
+                ? "bg-blue-600 border-yellow-400 shadow-lg shadow-yellow-400/40"
+                : "bg-blue-900 border-blue-300 hover:bg-blue-800"
+            }`}
+            onClick={() => updateTeamActiveStatus(team.id)}
           >
-            <h2 className="font-bold">{team.name}</h2>
-            <p className="text-yellow-300 text-xl">{team.score}</p>
+            <h2 className="font-bold text-xl mb-1">{team.name}</h2>
+            <p className="text-yellow-300 text-2xl font-mono">{team.score}</p>
           </div>
         ))}
       </div>
 
       {/* Game Board */}
       {!selectedTile ? (
-        <div className="grid grid-cols-6 gap-[2px] border-[2px] border-yellow-400 max-w-6xl mx-auto">
+        <div className="grid grid-cols-6 gap-[2px] border-[2px] border-yellow-400 w-full h-full flex-1">
           {categories.map((cat, i) => (
             <div
               key={i}
-              className="bg-[#0B3D91] text-center py-4 px-2 font-bold border border-yellow-400 text-lg uppercase"
+              className="bg-blue-800 flex items-center justify-center text-center py-4 px-2 font-bold border border-yellow-400 text-lg uppercase"
             >
               {cat}
             </div>
@@ -214,7 +236,7 @@ export default function GamePage() {
               const col = i % 6;
               const value = values[row];
               const q = questions[col]?.[row];
-              const isUsed = usedQuestions.includes(q?.id || "");
+              const isUsed = usedQuestions?.includes(q?.id || "");
 
               return (
                 <div
@@ -222,10 +244,10 @@ export default function GamePage() {
                   onClick={() =>
                     !isUsed && setSelectedTile({ row, col, value })
                   }
-                  className={`text-center py-6 text-2xl font-bold cursor-pointer border border-yellow-400 ${
+                  className={`flex items-center justify-center text-center py-6 text-2xl font-bold cursor-pointer border border-yellow-400 ${
                     isUsed
                       ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                      : "bg-[#0B3D91] text-yellow-300 hover:bg-yellow-500 hover:text-black transition-colors"
+                      : "bg-blue-800 text-yellow-300 hover:bg-yellow-500 hover:text-black transition-colors"
                   }`}
                 >
                   ${value}

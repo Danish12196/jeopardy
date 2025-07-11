@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectTrigger,
@@ -37,8 +36,6 @@ export default function AddBulkQuestionForm() {
   ]);
   const [difficultyOptions, setDifficultyOptions] = useState<string[]>([]);
 
-  type QuestionField = "question" | "answer" | "hint" | "value" | "category";
-
   const updateQuestion = <K extends keyof Question>(
     index: number,
     key: K,
@@ -52,7 +49,14 @@ export default function AddBulkQuestionForm() {
   const addRow = () => {
     setQuestions([
       ...questions,
-      { question: "", answer: "", hint: "", value: 100, category: "" },
+      {
+        question: "",
+        answer: "",
+        hint: "",
+        value: 100,
+        category: "",
+        difficulty: "1",
+      },
     ]);
   };
 
@@ -73,10 +77,16 @@ export default function AddBulkQuestionForm() {
     }
 
     try {
-      const results = await batch.send();
-      console.log("Batch results:", results);
+      await batch.send();
       setQuestions([
-        { question: "", answer: "", hint: "", value: 100, category: "" },
+        {
+          question: "",
+          answer: "",
+          hint: "",
+          value: 100,
+          category: "",
+          difficulty: "1",
+        },
       ]);
     } catch (err) {
       console.error("Batch error:", err);
