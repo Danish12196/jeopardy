@@ -1,5 +1,7 @@
 import PocketBase from "pocketbase";
 
-// PocketBase serves this app in production (and Vite proxies /api in dev),
-// so the API is always on the same origin as the page.
-export const pb = new PocketBase("/");
+// VITE_PB_URL points at PocketBase when the frontend is hosted separately
+// (Vercel → https://api.buzzwire.danishali.dev). Without it the API is assumed
+// to be on the same origin: the Vite dev proxy locally, or PocketBase itself
+// when it serves the built app.
+export const pb = new PocketBase(import.meta.env.VITE_PB_URL || "/");

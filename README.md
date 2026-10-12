@@ -15,30 +15,37 @@ flowchart LR
     Host[Host controls]
     Phones[Player buzzers<br/>phones]
   end
-  NPM[Nginx Proxy Manager<br/>HTTPS, Let's Encrypt]
-  subgraph Container[Docker container on the NAS]
+  Vercel[Vercel<br/>buzzwire.danishali.dev<br/>React app]
+  NPM[Nginx Proxy Manager<br/>api.buzzwire.danishali.dev]
+  subgraph NAS[Docker container on the NAS]
     PB[PocketBase<br/>REST + realtime SSE<br/>JS hooks · custom routes]
-    Public[pb_public<br/>built React app]
     DB[(SQLite<br/>pb_data volume)]
   end
-  TV & Host & Phones -->|HTTPS| NPM --> PB
-  PB --- Public
-  PB --- DB
+  TV & Host & Phones -->|load the app| Vercel
+  TV & Host & Phones -->|API + realtime, HTTPS| NPM --> PB --- DB
 ```
 
-Everything is one container on one domain. PocketBase serves the API, the realtime stream, the
-custom game routes in `pb_hooks/`, and the React app from `pb_public/` (with an `index.html`
-fallback so client-side routes like `/room/ABCD/board` work on refresh).
+Two services:
+
+- **Frontend** on Vercel at `buzzwire.danishali.dev`. A static React build; Vercel rewrites every
+  path to `index.html` so routes like `/room/ABCD/board` work on refresh. `VITE_PB_URL` tells it
+  where the API is.
+- **PocketBase** on the Synology NAS at `api.buzzwire.danishali.dev`, behind Nginx Proxy Manager.
+  It holds the database, auth, the realtime stream, and the custom game routes in `pb_hooks/`.
+
+The Docker image also bundles the built app in `pb_public/`, so PocketBase can serve everything
+from one origin too (that's how `make up` and the smoke test run). The step-by-step deployment,
+including prompts you can hand to an agent, is in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Tech stack
 
-| Layer    | Choice                                              |
-| -------- | --------------------------------------------------- |
-| Frontend | React 19, Vite 8, TypeScript (strict), React Router |
-| Styling  | Tailwind CSS v4, shadcn/ui                          |
-| Backend  | PocketBase 0.40 (SQLite, auth, realtime, JS hooks)  |
-| Testing  | Vitest (Playwright and integration tests to come)   |
-| Hosting  | Docker on a Synology NAS behind Nginx Proxy Manager |
+| Layer    | Choice                                                   |
+| -------- | -------------------------------------------------------- |
+| Frontend | React 19, Vite 8, TypeScript (strict), React Router      |
+| Styling  | Tailwind CSS v4, shadcn/ui                               |
+| Backend  | PocketBase 0.40 (SQLite, auth, realtime, JS hooks)       |
+| Testing  | Vitest (Playwright and integration tests to come)        |
+| Hosting  | Vercel (frontend), Docker on a Synology NAS (PocketBase) |
 
 ## Repository layout
 
@@ -92,18 +99,18 @@ Other commands (`make help` lists them all):
 These steps are for a Synology NAS with Container Manager and Nginx Proxy Manager (NPM), but any
 Docker host works.
 
-### 1. Build and push the image
+### 1. The image
 
-Copy `.env.example` to `.env` and set `BUZZWIRE_IMAGE` to your registry. The default is GitHub
-Container Registry:
+Every push to `main` runs CI (`.github/workflows/ci.yml`). Once the checks pass, it builds the
+image for `linux/amd64` (the DS923+ is x86_64) and pushes it to
+`ghcr.io/danish12196/buzzwire:latest`, plus a `:<commit sha>` tag for rollbacks.
 
-```sh
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u <github-user> --password-stdin  # token needs write:packages
-make push    # builds linux/amd64 (the DS923+ is x86_64) and tags :latest and :<git sha>
-```
+GHCR packages start private. Either make the package public (GitHub → Packages → buzzwire →
+Package settings → Change visibility), or run `docker login ghcr.io` on the NAS with a token that
+has `read:packages`.
 
-GHCR packages start private. Either make the package public, or run `docker login ghcr.io` on the
-NAS too.
+To build and push by hand instead: copy `.env.example` to `.env`, `docker login ghcr.io`, then
+`make push`.
 
 ### 2. Run it on the NAS
 
@@ -115,8 +122,8 @@ docker compose pull && docker compose up -d
 ```
 
 The database, uploaded files and backups live in the `pb_data` named volume, so they survive image
-updates. To update, run `make push` on your machine, then `docker compose pull && docker compose up -d`
-on the NAS.
+updates. To update after a push to `main`: `docker compose pull && docker compose up -d` on the
+NAS.
 
 ### 3. Create the superuser
 
@@ -133,7 +140,7 @@ No credentials are stored in the repo or the image.
 
 Add a **Proxy Host**:
 
-- **Domain:** e.g. `buzzwire.danishali.dev`
+- **Domain:** `api.buzzwire.danishali.dev`
 - **Forward to:** `http://<NAS LAN IP>:8090` (the `BUZZWIRE_PORT` from `.env`)
 - **Block common exploits:** on. **Websockets support:** not needed (realtime uses SSE).
 - **SSL:** request a Let's Encrypt certificate, then turn on Force SSL and HTTP/2.
@@ -175,6 +182,15 @@ include the Docker volume in Hyper Backup.
 
 The image's Docker `HEALTHCHECK` calls PocketBase's built-in `GET /api/health`. Container Manager
 shows the status, and `tests/smoke.sh` waits for it.
+
+### Frontend on Vercel
+
+Import the repo into Vercel as a project named `buzzwire`. `vercel.json` sets the build. Add one
+environment variable, `VITE_PB_URL=https://api.buzzwire.danishali.dev`, and the domain
+`buzzwire.danishali.dev`. Vercel then deploys every push to `main`.
+
+PocketBase allows cross-origin requests from any origin by default. That's safe here: auth uses
+tokens in request headers, not cookies, so other sites can't act as a signed-in user.
 
 ## Roadmap
 

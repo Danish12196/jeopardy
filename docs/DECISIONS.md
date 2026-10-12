@@ -13,18 +13,31 @@ for custom routes and cron. It runs comfortably on a home NAS, there's no separa
 server to manage, and backups are a built-in setting. Self-hosting keeps the running cost at zero
 and is part of what the portfolio piece demonstrates.
 
-### One container, one origin
+### Frontend on Vercel, PocketBase on the NAS
 
-PocketBase serves the built React app from `pb_public` as well as the API. That means:
+The brief started with a single container serving both the app and the API. The deployment is
+now split. The React app is a static build on Vercel (`buzzwire.danishali.dev`): a fast global
+CDN, preview deploys, nothing to run. PocketBase stays on the NAS (`api.buzzwire.danishali.dev`).
+PocketBase can't run on Vercel or another serverless host: it's a long-running process that keeps
+SQLite on disk and holds realtime connections open.
 
-- one image to build, deploy and health-check;
-- no CORS, and no API URL baked into the frontend: the SDK talks to `/`, which is PocketBase in
-  production and the Vite dev proxy locally;
-- deep links like `/room/ABCD/board` work on refresh via PocketBase's `index.html` fallback.
+- The frontend reads `VITE_PB_URL` at build time. Without it, the SDK talks to `/`: the Vite dev
+  proxy locally, or PocketBase itself when it serves the app. The Docker image still bundles the
+  built app in `pb_public`, so the one-container setup keeps working for local runs and the smoke
+  test.
+- Cross-origin requests use PocketBase's default CORS (any origin). Auth tokens travel in an
+  `Authorization` header, not cookies, so another site can't make requests as a signed-in user.
+- Vercel rewrites every path to `index.html` (`vercel.json`) for client-side routing.
 
-The fallback would also catch mistyped API URLs and answer them with a 200 HTML page, so
-`pb_hooks/api_not_found.pb.js` registers a `GET /api/{path...}` route that returns a JSON 404.
-Real API routes are more specific and still win.
+PocketBase's own `index.html` fallback would also catch mistyped API URLs and answer them with a
+200 HTML page, so `pb_hooks/api_not_found.pb.js` registers a `GET /api/{path...}` route that
+returns a JSON 404. Real API routes are more specific and still win.
+
+### CI builds the image
+
+GitHub Actions checks every push and PR. On `main` it also builds the `linux/amd64` image and
+pushes it to GHCR, so the NAS only ever runs `docker compose pull`. Nothing has to be built on the
+NAS or on a laptop.
 
 ### No secrets in the frontend
 
