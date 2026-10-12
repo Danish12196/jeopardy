@@ -13,31 +13,32 @@ for custom routes and cron. It runs comfortably on a home NAS, there's no separa
 server to manage, and backups are a built-in setting. Self-hosting keeps the running cost at zero
 and is part of what the portfolio piece demonstrates.
 
-### Frontend on Vercel, PocketBase on the NAS
+### Frontend on Hostinger, PocketBase on the NAS
 
-The brief started with a single container serving both the app and the API. The deployment is
-now split. The React app is a static build on Vercel (`buzzwire.danishali.dev`): a fast global
-CDN, preview deploys, nothing to run. PocketBase stays on the NAS (`api.buzzwire.danishali.dev`).
-PocketBase can't run on Vercel or another serverless host: it's a long-running process that keeps
-SQLite on disk and holds realtime connections open.
+The brief started with one container serving both the app and the API. The deployment is now
+split:
 
+- **Frontend:** static files on Hostinger web hosting (`jeopardy.danishali.dev`), where the
+  domain already lives. CI builds the app and pushes the output to a `frontend-dist` branch, and
+  Hostinger's Git deployment pulls that branch. No FTP credentials are stored in GitHub.
+  `.htaccess` handles client-side routing and caching.
+- **PocketBase:** Docker on the NAS (`pb-db.danishali.dev`) behind Nginx Proxy Manager. Shared web
+  hosting and serverless platforms can't run PocketBase: it's a long-running process that keeps
+  SQLite on disk and holds realtime connections open.
 - The frontend reads `VITE_PB_URL` at build time. Without it, the SDK talks to `/`: the Vite dev
-  proxy locally, or PocketBase itself when it serves the app. The Docker image still bundles the
-  built app in `pb_public`, so the one-container setup keeps working for local runs and the smoke
-  test.
+  proxy locally, or PocketBase itself in the all-in-one image.
 - Cross-origin requests use PocketBase's default CORS (any origin). Auth tokens travel in an
   `Authorization` header, not cookies, so another site can't make requests as a signed-in user.
-- Vercel rewrites every path to `index.html` (`vercel.json`) for client-side routing.
 
 PocketBase's own `index.html` fallback would also catch mistyped API URLs and answer them with a
 200 HTML page, so `pb_hooks/api_not_found.pb.js` registers a `GET /api/{path...}` route that
 returns a JSON 404. Real API routes are more specific and still win.
 
-### CI builds the image
+### CI builds both deployables
 
-GitHub Actions checks every push and PR. On `main` it also builds the `linux/amd64` image and
-pushes it to GHCR, so the NAS only ever runs `docker compose pull`. Nothing has to be built on the
-NAS or on a laptop.
+GitHub Actions checks every push and PR. On `main` it also builds the `linux/amd64` PocketBase
+image and pushes it to GHCR, and publishes the built frontend to `frontend-dist`. Nothing is built
+on the NAS, on Hostinger or on a laptop.
 
 ### No secrets in the frontend
 

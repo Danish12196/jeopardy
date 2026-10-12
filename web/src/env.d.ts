@@ -1,5 +1,5 @@
 interface ImportMetaEnv {
-  /** PocketBase base URL, e.g. https://api.buzzwire.danishali.dev. Defaults to same origin. */
+  /** PocketBase base URL, e.g. https://pb-db.danishali.dev. Defaults to same origin. */
   readonly VITE_PB_URL?: string;
 }
 

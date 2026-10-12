@@ -55,3 +55,43 @@ jobs:
             ${{ steps.name.outputs.image }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # On main, build the frontend against the production API and publish the
+  # files to the frontend-dist branch, which Hostinger's Git deployment pulls.
+  frontend:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          # Override with a repository variable if the API domain changes.
+          VITE_PB_URL: ${{ vars.VITE_PB_URL || 'https://pb-db.danishali.dev' }}
+      - name: Publish dist/ to the frontend-dist branch
+        working-directory: dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q -b frontend-dist
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Frontend build of ${GITHUB_SHA}"
+          git push -f -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" frontend-dist
+      - name: Tell Hostinger to redeploy (if its webhook is configured)
+        env:
+          HOSTINGER_DEPLOY_WEBHOOK: ${{ secrets.HOSTINGER_DEPLOY_WEBHOOK }}
+        run: |
+          if [ -n "$HOSTINGER_DEPLOY_WEBHOOK" ]; then
+            curl -fsS -X POST "$HOSTINGER_DEPLOY_WEBHOOK" >/dev/null && echo "Hostinger redeploy triggered"
+          else
+            echo "HOSTINGER_DEPLOY_WEBHOOK not set; skipping (deploy from hPanel or a GitHub webhook instead)"
+          fi

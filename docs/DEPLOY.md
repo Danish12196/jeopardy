@@ -1,149 +1,259 @@
 # Deploying Buzzwire
 
-Two services:
+| Service    | Runs on                          | Address                          |
+| ---------- | -------------------------------- | -------------------------------- |
+| Frontend   | Hostinger web hosting            | `https://jeopardy.danishali.dev` |
+| PocketBase | Synology NAS (Docker) + Nginx PM | `https://pb-db.danishali.dev`    |
 
-| Service    | Where                 | Address                              |
-| ---------- | --------------------- | ------------------------------------ |
-| Frontend   | Vercel                | `https://buzzwire.danishali.dev`     |
-| PocketBase | Synology NAS (Docker) | `https://api.buzzwire.danishali.dev` |
+- **DNS** for `danishali.dev` is at Hostinger (nameservers `ns1/ns2.dns-parking.com`).
+- **Repo:** https://github.com/Danish12196/jeopardy (public).
 
-DNS for `danishali.dev` is hosted at Hostinger (nameservers `ns1/ns2.dns-parking.com`).
+## What's automatic once it's set up
 
-## Order
+Every push to `main` runs CI (`.github/workflows/ci.yml`). Once the checks pass:
 
-Each step below is a self-contained prompt you can paste into an agent that has the right access.
-Do them in this order, because each one needs something from the one before:
+- **Frontend:** CI builds the app with `VITE_PB_URL=https://pb-db.danishali.dev` and force-pushes
+  the built files to the **`frontend-dist`** branch: `index.html`, `assets/`, `favicon.svg` and
+  `.htaccess` at the branch root. Hostinger's Git deployment pulls that branch into the
+  `jeopardy.danishali.dev` folder.
+- **Backend:** CI builds the PocketBase image and pushes it to
+  **`ghcr.io/danish12196/buzzwire`** (`:latest` and `:<commit sha>`). The NAS pulls it.
 
-1. **Merge to `main`.** Vercel deploys `main` to production, and CI builds the PocketBase image
-   from `main`. Until the rebuild is merged, there's nothing to deploy.
-2. **Make the image public** (one click, below) so the NAS can pull it without a login.
-3. **NAS agent:** runs PocketBase and finds the NAS's public address. → reports `HOME_ADDRESS`.
-4. **Vercel agent:** creates the frontend project and domain. → reports `VERCEL_CNAME`.
-5. **Hostinger agent:** adds the two DNS records using those values.
-6. **NAS agent again:** issues the HTTPS certificate (it needs DNS from step 5 first).
-7. **Check:** open `https://buzzwire.danishali.dev`. The footer should say "Server online".
+Nothing is built on Hostinger or on the NAS.
 
-### Step 2: make the image public
+## Order of steps
 
-After the first push to `main`, CI publishes `ghcr.io/danish12196/buzzwire`. On GitHub: your
-profile → **Packages** → **buzzwire** → **Package settings** → **Change visibility** → Public.
-(Or skip this and the NAS agent will need a GitHub token with `read:packages`.)
+Each step depends on the one before it:
+
+| #   | Who / where         | What                                                                  | Produces                  |
+| --- | ------------------- | --------------------------------------------------------------------- | ------------------------- |
+| 1   | GitHub              | Merge the rebuild to `main`; CI publishes `frontend-dist` + the image | branch + image            |
+| 2   | GitHub              | Make the image public                                                 |                           |
+| 3   | NAS agent (part A)  | Run PocketBase, find the home address                                 | `HOME_ADDRESS`, `PB_PORT` |
+| 4   | **Hostinger agent** | Subdomain, Git deployment, SSL, DNS for both domains                  | site live, webhook URL    |
+| 5   | GitHub              | Add the Hostinger webhook so frontend deploys are automatic           |                           |
+| 6   | NAS agent (part B)  | Nginx Proxy Manager host + HTTPS certificate for `pb-db`              | API live                  |
+| 7   | Anyone              | Final checks                                                          |                           |
 
 ---
 
-## Prompt: NAS agent (steps 3 and 6)
+## Step 1: merge to `main` (GitHub)
 
-> For an agent with SSH access to the Synology NAS (and, ideally, access to its DSM web UI and
-> Nginx Proxy Manager).
+Merge the branch with the rebuild into `main`, then wait for the **CI** workflow on `main` to go
+green (GitHub → Actions). Check that:
+
+- the branch **`frontend-dist`** exists and has `index.html` and `.htaccess` at its root;
+- the package **`buzzwire`** appears under the repo owner's GitHub profile → Packages.
+
+## Step 2: make the image public (GitHub)
+
+GitHub profile → **Packages** → **buzzwire** → **Package settings** → **Danger zone → Change
+visibility** → **Public**. This lets the NAS pull it without a login. (Alternatively, give the
+NAS agent a GitHub token with `read:packages` and have it run `docker login ghcr.io`.)
+
+---
+
+## Step 3: NAS agent, part A (run PocketBase)
+
+> Paste into an agent with SSH access to the Synology NAS (and ideally the DSM and Nginx Proxy
+> Manager web UIs).
 
 ```text
-Set up the Buzzwire PocketBase server on my Synology DS923+ (x86_64), using Docker via Container
-Manager, behind my existing Nginx Proxy Manager (NPM). Repo: https://github.com/Danish12196/jeopardy
-(docker-compose.yml, docs/DEPLOY.md, and the "Self-hosting" section of README.md).
+Set up the Buzzwire PocketBase server on my Synology DS923+ (x86_64) with Docker (Container
+Manager), behind my existing Nginx Proxy Manager (NPM). Repo:
+https://github.com/Danish12196/jeopardy (see docker-compose.yml and docs/DEPLOY.md).
 
-1. Create /volume1/docker/buzzwire. Put the repo's docker-compose.yml in it, plus a .env with:
+1. Create /volume1/docker/buzzwire. Put the repo's docker-compose.yml there, plus a .env with:
      BUZZWIRE_IMAGE=ghcr.io/danish12196/buzzwire
      BUZZWIRE_TAG=latest
      BUZZWIRE_PORT=8090
-   If port 8090 is already in use on the NAS, pick a free one and tell me which.
-   Start it: `docker compose pull && docker compose up -d` (or as a Container Manager Project from
-   that folder). If the pull is denied, the GHCR package is still private: stop and tell me.
-2. Wait until `docker inspect -f '{{.State.Health.Status}}' buzzwire` is "healthy", then check
-   `curl -s http://127.0.0.1:<port>/api/buzzwire/hello` returns {"message":"Hello from Buzzwire",...}.
-3. Create the PocketBase superuser with a strong random password, and give me the email/password
-   once (don't save it anywhere else):
+   If 8090 is taken on the NAS, pick a free port (PB_PORT) and tell me which.
+   Start it with `docker compose pull && docker compose up -d` in that folder, or as a Container
+   Manager Project pointed at that folder. If the pull is denied, the GHCR package is still
+   private: stop and tell me.
+2. Wait until `docker inspect -f '{{.State.Health.Status}}' buzzwire` says "healthy". Check that
+   `curl -s http://127.0.0.1:<PB_PORT>/api/buzzwire/hello` returns {"message":"Hello from Buzzwire",...}.
+3. Create the PocketBase superuser with my email and a strong random password. Show me the
+   password once and don't store it anywhere else:
      docker compose exec buzzwire /pb/pocketbase superuser upsert <my email> '<password>' --dir /pb/pb_data
-4. Work out how the internet reaches this NAS, without changing anything yet:
-   - Is NPM installed and running? Which ports does it listen on?
-   - Are TCP 80 and 443 on the router forwarded to NPM? (Check existing NPM proxy hosts that
-     already work from outside, e.g. Jellyfin.)
-   - What's the public address: a DDNS hostname (DSM → External Access → DDNS, e.g.
-     xxx.synology.me) or a static public IPv4? Is the home connection behind CGNAT?
-   Report HOME_ADDRESS: the DDNS hostname if there is one (preferred), otherwise the public IPv4.
-   If 80/443 can't reach NPM from the internet, stop and explain the options.
-5. STOP here and report: the port used, HOME_ADDRESS, and whether 80/443 reach NPM. DNS has to be
-   set up before the certificate step.
+4. Find out how the internet reaches this NAS. Don't change anything yet:
+   - Is NPM running, and on which ports?
+   - Are TCP 80 and 443 on the router forwarded to NPM? (Existing NPM hosts that already work
+     from outside, e.g. Jellyfin, are a good sign.)
+   - What's the public address? Prefer a DDNS hostname (DSM → External Access → DDNS, e.g.
+     xxx.synology.me); otherwise the public IPv4. Is the connection behind CGNAT?
+5. Optional, recommended: in DSM → Control Panel → Task Scheduler, add a daily root task that
+   keeps the server updated:
+     cd /volume1/docker/buzzwire && docker compose pull -q && docker compose up -d && docker image prune -f
+6. STOP and report: PB_PORT, the NAS LAN IP, HOME_ADDRESS (DDNS hostname or IPv4), and whether
+   80/443 reach NPM from the internet. If they don't, explain the options instead of continuing.
+```
 
---- Second run, after I tell you DNS is in place ---
+---
 
-6. In NPM, add a Proxy Host:
-   - Domain: api.buzzwire.danishali.dev
-   - Forward to: http://<NAS LAN IP>:<port>. Block common exploits: on. Websockets: off.
-   - SSL: request a Let's Encrypt certificate, Force SSL on, HTTP/2 on.
-   - Advanced tab, custom nginx config:
+## Step 4: Hostinger agent (frontend + DNS)
+
+> Paste into an agent with access to the Hostinger account (hPanel, or the Hostinger API).
+> Replace `<HOME_ADDRESS>` with the value from step 3. Menu names in hPanel may differ slightly
+> from those below.
+
+```text
+Deploy the Buzzwire frontend on my Hostinger web hosting at jeopardy.danishali.dev, and add DNS
+for the backend at pb-db.danishali.dev. Never delete or overwrite existing DNS records or sites;
+if something conflicts, stop and ask me.
+
+Facts:
+- Domain: danishali.dev. Its DNS is managed in this Hostinger account (ns1/ns2.dns-parking.com).
+- The frontend is pre-built static files on the `frontend-dist` branch of the public repo
+  https://github.com/Danish12196/jeopardy.git (index.html, assets/, favicon.svg, .htaccess at the
+  branch root). No build step and no Node.js on Hostinger.
+- .htaccess (LiteSpeed/Apache) already handles client-side routing (unknown paths → index.html)
+  and cache headers. It must end up in the subdomain's document root.
+- The backend runs on my home NAS, not on Hostinger. Its address is HOME_ADDRESS = <HOME_ADDRESS>.
+
+A. Check what I have
+   1. List my hosting plans and websites. I need a web hosting plan (Single/Premium/Business or
+      Cloud) that supports subdomains, Git deployment and free SSL. If I only own the domain and
+      have no hosting plan, STOP and tell me (with the cheapest suitable plan). Don't buy anything
+      without my OK.
+   2. Is danishali.dev itself set up as a website in hPanel? Note its document root
+      (usually public_html, or domains/danishali.dev/public_html).
+   3. Check the DNS zone for existing records named "jeopardy", "pb-db" or a wildcard "*". Report
+      any you find; don't change them.
+
+B. Create the subdomain jeopardy.danishali.dev
+   - If danishali.dev is a website: Websites → danishali.dev → Domains → Subdomains → create
+     "jeopardy". Use a dedicated, empty folder (e.g. public_html/jeopardy) and note its full path.
+   - If danishali.dev is not a website in this account: add jeopardy.danishali.dev as its own
+     website (Add website → use an existing domain/subdomain), empty, no WordPress or builder.
+   - Make sure the subdomain's DNS points at this hosting. Creating it in hPanel normally adds an
+     A record "jeopardy" automatically: verify it exists.
+
+C. Deploy from Git
+   1. Websites → (the site owning the subdomain) → Advanced → GIT → create a repository:
+        Repository: https://github.com/Danish12196/jeopardy.git
+        Branch:     frontend-dist
+        Install path / directory: the subdomain's folder from step B (relative to public_html,
+                    e.g. "jeopardy"). Hostinger requires this folder to be empty: if the subdomain
+                    created a default index.php or default.php there, delete that file first.
+   2. Click Deploy. Then confirm the folder contains index.html, .htaccess, favicon.svg and
+      assets/. If .htaccess is missing, stop and tell me.
+   3. Turn on Auto Deployment for this repository and copy the webhook URL. Report it to me; I
+      add it to GitHub so every new build redeploys automatically.
+
+D. HTTPS
+   1. Security → SSL: install the free SSL certificate for jeopardy.danishali.dev (it can take a
+      few minutes after DNS resolves).
+   2. Turn on "Force HTTPS" for the subdomain.
+   3. If the Hostinger CDN is on for this site, leave it on, but purge its cache after each deploy
+      when testing.
+
+E. DNS for the backend (pb-db.danishali.dev → my NAS)
+   Domains → danishali.dev → DNS / Nameservers → DNS records → add:
+   - If HOME_ADDRESS is a hostname (e.g. something.synology.me):
+       Type CNAME | Name: pb-db | Target: <HOME_ADDRESS> | TTL 3600
+   - If HOME_ADDRESS is an IPv4 address:
+       Type A     | Name: pb-db | Points to: <HOME_ADDRESS> | TTL 3600
+   Also check the zone's CAA records. If there are any, one must allow letsencrypt.org (the NAS
+   gets its certificate from Let's Encrypt). If none allows it, tell me; don't edit CAA yourself.
+
+F. Verify and report
+   - https://jeopardy.danishali.dev loads a dark page titled "Buzzwire".
+   - https://jeopardy.danishali.dev/room/ABCD/board also loads it (not a 404). This proves
+     .htaccess works.
+   - http://jeopardy.danishali.dev redirects to https.
+   - pb-db.danishali.dev resolves publicly to HOME_ADDRESS (e.g. dig +short pb-db.danishali.dev).
+   - The footer will say "Server unreachable" until the NAS part is finished. That's expected.
+   Report: the subdomain's folder path, the Git deployment settings, the auto-deploy webhook URL,
+   the DNS records added, the SSL status, and anything you couldn't do.
+```
+
+---
+
+## Step 5: connect the auto-deploy webhook (GitHub)
+
+So Hostinger redeploys whenever CI publishes a new frontend build, do **one** of these in the
+GitHub repo (needs repo admin):
+
+- **Recommended:** Settings → Secrets and variables → Actions → New repository secret:
+  `HOSTINGER_DEPLOY_WEBHOOK` = the webhook URL from step 4C. CI calls it right after updating
+  `frontend-dist`.
+- **Or:** Settings → Webhooks → Add webhook: Payload URL = the webhook URL, "Just the push
+  event". This fires on every push, including the `frontend-dist` update.
+
+Without either, redeploy by clicking **Deploy** in hPanel → GIT after each change.
+
+---
+
+## Step 6: NAS agent, part B (HTTPS for the API)
+
+> Same NAS agent, after the Hostinger step reports that `pb-db.danishali.dev` resolves.
+
+```text
+Continue the Buzzwire setup. DNS for pb-db.danishali.dev now points at my home address.
+
+1. In Nginx Proxy Manager, add a Proxy Host:
+   - Domain: pb-db.danishali.dev
+   - Forward: http://<NAS LAN IP>:<PB_PORT>. Block common exploits: on. Websockets: off.
+   - SSL: request a new Let's Encrypt certificate. Force SSL: on. HTTP/2: on.
+   - Advanced tab → custom Nginx configuration:
+       # Realtime uses server-sent events: don't buffer, keep idle streams open.
        proxy_buffering off;
        proxy_cache off;
        proxy_read_timeout 1h;
        proxy_send_timeout 1h;
+
+       # PocketBase admin dashboard: home network only.
        location /_/ {
            allow 192.168.0.0/16;   # change to the actual LAN subnet
            deny all;
            include conf.d/include/proxy.conf;
        }
-7. Verify from outside the LAN if possible:
-   - https://api.buzzwire.danishali.dev/api/health → 200 JSON
-   - https://api.buzzwire.danishali.dev/api/buzzwire/hello → 200 JSON
-   - https://api.buzzwire.danishali.dev/api/realtime streams an "event:PB_CONNECT" line straight
-     away (curl -N); if it hangs, buffering is still on.
-   - https://api.buzzwire.danishali.dev/_/ from outside the LAN → 403
    If NPM rejects the Advanced config, remove only the location block, tell me, and continue.
-8. Don't expose port <port> on the router; only NPM should reach it. Report what you did.
-```
-
-## Prompt: Vercel agent (step 4)
-
-> For an agent with access to my Vercel account (team "Danish's projects"), e.g. Claude with the
-> Vercel connector.
-
-```text
-Create the Buzzwire frontend on Vercel in my team "Danish's projects"
-(team_L5B9lLTWXTXpxsQnIsQzmOo7).
-
-1. Create a project named "buzzwire", connected to the GitHub repo Danish12196/jeopardy,
-   production branch main. Root directory: repo root. vercel.json in the repo sets framework
-   (vite), install (npm ci), build (npm run build) and output (dist), so leave those on defaults.
-   If Vercel can't see the repo, the Vercel GitHub app needs access to it: tell me the exact link
-   to grant it.
-2. Environment variable, for Production and Preview:
-     VITE_PB_URL = https://api.buzzwire.danishali.dev
-3. Add the domain buzzwire.danishali.dev to the project (production). danishali.dev is already
-   in the team but its DNS is at Hostinger, so it will show as misconfigured until DNS is added.
-   Report the exact CNAME target Vercel asks for (VERCEL_CNAME), e.g. cname.vercel-dns.com or a
-   project-specific *.vercel-dns-0xx.com value, plus any TXT verification record it requests.
-4. Trigger a production deployment of main and report whether the build passed and its
-   *.vercel.app URL.
-```
-
-## Prompt: Hostinger DNS agent (step 5)
-
-> For an agent with access to my Hostinger account (hPanel → Domains → danishali.dev → DNS / Nameservers).
-
-```text
-Add DNS records for danishali.dev in Hostinger. Don't change, delete or replace any existing
-records, and don't change the nameservers.
-
-1. Frontend (Vercel):
-     Type CNAME, Name: buzzwire, Target: <VERCEL_CNAME from the Vercel step>, TTL 3600
-   If Vercel asked for a TXT verification record, add it exactly as given.
-2. API (home NAS):
-   - If HOME_ADDRESS is a hostname (e.g. something.synology.me):
-       Type CNAME, Name: api.buzzwire, Target: <HOME_ADDRESS>, TTL 3600
-   - If HOME_ADDRESS is an IPv4 address:
-       Type A, Name: api.buzzwire, Points to: <HOME_ADDRESS>, TTL 3600
-3. Before adding, check there's no existing record named "buzzwire", "api.buzzwire", or a wildcard
-   "*" that conflicts. If there is, stop and tell me rather than overwriting it.
-4. Report the records as saved, then confirm they resolve publicly, e.g.:
-     dig +short buzzwire.danishali.dev CNAME
-     dig +short api.buzzwire.danishali.dev
+2. Verify from outside the home network if you can (e.g. phone data, or an online checker):
+   - https://pb-db.danishali.dev/api/health → 200 {"message":"API is healthy."...}
+   - https://pb-db.danishali.dev/api/buzzwire/hello → 200 JSON
+   - `curl -N https://pb-db.danishali.dev/api/realtime` prints "event:PB_CONNECT" immediately.
+     If it hangs, buffering is still on.
+   - https://pb-db.danishali.dev/_/ → 403 from outside, the PocketBase login from the LAN.
+3. Don't forward <PB_PORT> on the router: only NPM may reach PocketBase (PocketBase trusts the
+   X-Real-IP header NPM sets). Report what you did.
 ```
 
 ---
 
-## After it's live
+## Step 7: final checks
 
-- **Updates:** push to `main`. Vercel redeploys the frontend by itself. For the backend, run
-  `docker compose pull && docker compose up -d` in `/volume1/docker/buzzwire` on the NAS.
-- **Backups:** nightly at 03:00 UTC into the `pb_data` volume (7 kept). Manage them in the
-  dashboard at `https://api.buzzwire.danishali.dev/_/` (from your home network).
-- **If the frontend says "Server unreachable":** check the container is healthy on the NAS, then
-  that `https://api.buzzwire.danishali.dev/api/health` loads.
+1. Open **https://jeopardy.danishali.dev** on a phone (mobile data, not Wi-Fi). The footer should
+   say **"Server online"**.
+2. Open https://jeopardy.danishali.dev/room/ABCD/play directly. It should show the Buzzer page,
+   not a 404.
+3. From home, open https://pb-db.danishali.dev/_/ and sign in with the superuser from step 3.
+
+## Updating
+
+- **Code:** push to `main`. CI rebuilds both; Hostinger redeploys via the webhook (or the Deploy
+  button), and the NAS picks up the new image via the daily scheduled task, or right away with
+  `docker compose pull && docker compose up -d` in `/volume1/docker/buzzwire`.
+- **Roll back the API:** set `BUZZWIRE_TAG=<older commit sha>` in the NAS `.env`, then
+  `docker compose up -d`.
+- **Roll back the frontend:** re-run an older CI run on `main` (Actions → the run → Re-run jobs).
+  It republishes that build to `frontend-dist`.
+
+## Backups
+
+PocketBase backs up `pb_data` nightly at 03:00 UTC, keeping 7, inside the Docker volume. Manage
+them at https://pb-db.danishali.dev/_/ → Settings → Backups. To keep copies off the NAS, add S3
+storage there or include the volume in Hyper Backup. The frontend needs no backup: it's rebuilt
+from Git.
+
+## Troubleshooting
+
+| Symptom                                  | Likely cause / fix                                                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Footer says "Server unreachable"         | `https://pb-db.danishali.dev/api/health` fails: container not healthy, NPM host/cert missing, or 80/443 not forwarded. |
+| `/room/ABCD/board` gives a Hostinger 404 | `.htaccess` missing from the subdomain folder, or Git deployed into the wrong folder.                                  |
+| Old frontend after a push                | Webhook not set (step 5) → click Deploy in hPanel; purge the Hostinger CDN cache.                                      |
+| Live updates lag or arrive in bursts     | NPM is buffering: add the Advanced config from step 6.                                                                 |
+| NPM can't get a certificate for `pb-db`  | DNS not propagated yet, port 80 not forwarded, or a CAA record blocks Let's Encrypt.                                   |
+| NAS can't pull the image ("denied")      | GHCR package still private: step 2.                                                                                    |
