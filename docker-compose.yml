@@ -1,0 +1,21 @@
+# Production stack: one container, data in a named volume.
+# Settings come from .env (see .env.example).
+name: buzzwire
+
+services:
+  buzzwire:
+    image: ${BUZZWIRE_IMAGE:-ghcr.io/danish12196/buzzwire}:${BUZZWIRE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: buzzwire
+    restart: unless-stopped
+    ports:
+      # Nginx Proxy Manager forwards HTTPS traffic to this port.
+      - "${BUZZWIRE_PORT:-8090}:8090"
+    volumes:
+      # The database, uploaded files and backups. Survives image updates.
+      - pb_data:/pb/pb_data
+
+volumes:
+  pb_data:

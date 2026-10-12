@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Buzzwire uses a single dark theme (it's mostly shown on TVs), so "dark:"
+   variants in shadcn components always apply via the class on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: dark;
+  --radius: 0.75rem;
+
+  --background: oklch(0.18 0.03 285);
+  --foreground: oklch(0.97 0.01 285);
+  --card: oklch(0.22 0.035 285);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  /* Coral: buzzers, primary actions. Dark text on it for contrast. */
+  --primary: oklch(0.74 0.17 38);
+  --primary-foreground: oklch(0.18 0.03 285);
+
+  --secondary: oklch(0.32 0.06 285);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.27 0.03 285);
+  --muted-foreground: oklch(0.75 0.03 285);
+  --accent: oklch(0.32 0.06 285);
+  --accent-foreground: var(--foreground);
+
+  --success: oklch(0.78 0.16 160);
+  --destructive: oklch(0.65 0.22 25);
+
+  --border: oklch(0.34 0.04 285);
+  --input: oklch(0.38 0.04 285);
+  --ring: oklch(0.82 0.14 60);
+}
+
+@theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  /* Visible focus for anything not already styled by a component. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+}

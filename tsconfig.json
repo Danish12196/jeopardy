@@ -1,13 +1,10 @@
 {
   "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
+  "references": [{ "path": "./web/tsconfig.json" }, { "path": "./tsconfig.node.json" }],
   "compilerOptions": {
-    "baseUrl": ".",
+    // Read by the shadcn CLI to resolve the "@/..." aliases in components.json.
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./web/src/*"]
     }
   }
 }
