@@ -5,10 +5,11 @@
 //   PB_URL=https://pb.example.com \
 //   PB_SUPERUSER_EMAIL=you@example.com \
 //   PB_SUPERUSER_PASSWORD='...' \
-//   node scripts/init-db.mjs [--dry-run]
+//   node scripts/init-db.mjs [--dry-run] [--sync-rules]
 //
 // Safe to re-run: existing collections are kept, and only missing fields are added.
-// Existing fields, rules and data are never changed or deleted.
+// Existing fields and data are never changed or deleted. Access rules are set on
+// new collections; pass --sync-rules to also apply them to existing ones.
 
 import PocketBase from "pocketbase";
 
@@ -16,6 +17,7 @@ const PB_URL = process.env.PB_URL;
 const EMAIL = process.env.PB_SUPERUSER_EMAIL || process.env.ADMIN_EMAIL;
 const PASSWORD = process.env.PB_SUPERUSER_PASSWORD || process.env.ADMIN_PASSWORD;
 const DRY_RUN = process.argv.includes("--dry-run");
+const SYNC_RULES = process.argv.includes("--sync-rules");
 
 if (!PB_URL || !EMAIL || !PASSWORD) {
   console.error("Set PB_URL, PB_SUPERUSER_EMAIL and PB_SUPERUSER_PASSWORD.");
@@ -25,9 +27,28 @@ if (!PB_URL || !EMAIL || !PASSWORD) {
 const pb = new PocketBase(PB_URL);
 pb.autoCancellation(false);
 
-// Rules: "" = anyone (incl. guests) can do it; null = superusers only.
-// These match what the app currently relies on. Tighten before going public.
-const OPEN_RULES = { listRule: "", viewRule: "", createRule: "", updateRule: "", deleteRule: "" };
+// Rules: "" = anyone (incl. guests), null = superusers only, otherwise a filter.
+// Anyone can read (players and the board aren't logged in); only logged-in users
+// can create or change content.
+const LOGGED_IN = '@request.auth.id != ""';
+const AUTHOR_RULES = {
+  listRule: "",
+  viewRule: "",
+  createRule: LOGGED_IN,
+  updateRule: LOGGED_IN,
+  deleteRule: LOGGED_IN,
+};
+
+// Guests on the buzzer page may only add themselves to buzzerQueue, and only
+// while the host has the buzzers unlocked. Every other field needs a login.
+const HOST_ONLY_GAME_FIELDS = [
+  "title", "uniqueID", "template", "teams", "categories", "values", "teamScores",
+  "answeredQuestions", "currentActiveQuestion", "currentActiveTeam", "showAnswer", "buzzerUnlocked",
+];
+const GUEST_BUZZ =
+  "buzzerUnlocked = true && " +
+  HOST_ONLY_GAME_FIELDS.map((f) => `@request.body.${f}:isset = false`).join(" && ");
+const GAME_RULES = { ...AUTHOR_RULES, updateRule: `${LOGGED_IN} || (${GUEST_BUZZ})` };
 
 const timestamps = [
   { name: "created", type: "autodate", onCreate: true, onUpdate: false },
@@ -48,10 +69,12 @@ const relation = (name, target, { single = false, required = false } = {}) => ({
 const COLLECTIONS = [
   {
     name: "teams",
+    rules: AUTHOR_RULES,
     fields: [{ name: "name", type: "text", required: true }],
   },
   {
     name: "question_categories",
+    rules: AUTHOR_RULES,
     fields: [
       { name: "name", type: "text", required: true },
       { name: "difficulty", type: "select", maxSelect: 1, values: ["Easy", "Medium", "Hard"] },
@@ -60,6 +83,7 @@ const COLLECTIONS = [
   },
   {
     name: "questions",
+    rules: AUTHOR_RULES,
     fields: [
       { name: "question", type: "text", required: true },
       { name: "answer", type: "text", required: true },
@@ -71,6 +95,7 @@ const COLLECTIONS = [
   },
   {
     name: "game_templates",
+    rules: AUTHOR_RULES,
     fields: [
       { name: "title", type: "text", required: true },
       relation("categories", "question_categories"),
@@ -79,6 +104,7 @@ const COLLECTIONS = [
   },
   {
     name: "games",
+    rules: GAME_RULES,
     fields: [
       { name: "title", type: "text" },
       { name: "uniqueID", type: "text", required: true },
@@ -125,7 +151,7 @@ async function upsert(def) {
       ids[def.name] = `<new:${def.name}>`;
       return;
     }
-    const created = await pb.collections.create({ name: def.name, type: "base", fields: desired, ...OPEN_RULES });
+    const created = await pb.collections.create({ name: def.name, type: "base", fields: desired, ...def.rules });
     ids[def.name] = created.id;
     return;
   }
@@ -142,13 +168,21 @@ async function upsert(def) {
     }
   }
 
-  if (!missing.length) {
+  const ruleChanges = SYNC_RULES
+    ? Object.keys(def.rules).filter((k) => existing[k] !== def.rules[k])
+    : [];
+
+  if (!missing.length && !ruleChanges.length) {
     console.log(`= ${def.name} already up to date`);
     return;
   }
-  console.log(`~ ${def.name}: add ${missing.map((f) => f.name).join(", ")}`);
+  if (missing.length) console.log(`~ ${def.name}: add ${missing.map((f) => f.name).join(", ")}`);
+  if (ruleChanges.length) console.log(`~ ${def.name}: update ${ruleChanges.join(", ")}`);
   if (!DRY_RUN) {
-    await pb.collections.update(existing.id, { fields: [...existing.fields, ...missing] });
+    const patch = {};
+    if (missing.length) patch.fields = [...existing.fields, ...missing];
+    for (const k of ruleChanges) patch[k] = def.rules[k];
+    await pb.collections.update(existing.id, patch);
   }
 }
 

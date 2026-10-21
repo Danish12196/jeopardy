@@ -60,10 +60,7 @@ export default function GameSetup() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="use-template">
-          <SelectTemplate />
-        </TabsContent>
-        <TabsContent value="use-template">
-          Change your password here.
+          <SelectTemplate teams={teams} />
         </TabsContent>
         <TabsContent value="add-categories">
           <AddCategoryForm />

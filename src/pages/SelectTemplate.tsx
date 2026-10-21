@@ -11,9 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function SelectTemplate() {
+// Short code players type on the join page. No 0/O/1/I to avoid confusion.
+function makeGameCode(length = 6) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
+
+export default function SelectTemplate({ teams }: { teams: string[] }) {
   const navigate = useNavigate();
-  const teams = ["Team 1", "Team 2"];
+  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const [categories, setCategories] = useState([
     "Cat 1",
     "Cat 2",
@@ -55,29 +63,41 @@ export default function SelectTemplate() {
   }, [selectedTemplate]);
 
   const startGame = async () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || starting) return;
+    const teamNames = teams.map((t) => t.trim()).filter(Boolean);
+    if (teamNames.length === 0) {
+      setError("Add at least one team.");
+      return;
+    }
 
-    const newGame = {
-      title: `Game: ${selectedTemplate.title}`,
-      template: selectedTemplate.id,
-      teams: teams.map((name) => ({ name, score: 0 })),
-      categories,
-      values,
-      usedQuestions: [],
-    };
-
+    setStarting(true);
+    setError(null);
     try {
-      const gameRecord = await pb
-        .collection("games")
-        .create(newGame);
+      const teamRecords = await Promise.all(
+        teamNames.map((name) => pb.collection("teams").create({ name }))
+      );
 
-      console.log("Created game:", gameRecord);
+      const uniqueID = makeGameCode();
+      await pb.collection("games").create({
+        title: `Game: ${selectedTemplate.title}`,
+        uniqueID,
+        template: selectedTemplate.id,
+        teams: teamRecords.map((t) => t.id),
+        categories,
+        values,
+        teamScores: teamRecords.map((t) => ({ id: t.id, score: 0 })),
+        answeredQuestions: [],
+        buzzerQueue: [],
+        showAnswer: false,
+        buzzerUnlocked: false,
+      });
 
-      // Optionally store in localStorage
-      localStorage.setItem("jeopardy-game", JSON.stringify(gameRecord));
-      navigate("/game");
+      navigate(`/game/${uniqueID}/host`);
     } catch (err) {
       console.error("Failed to create game:", err);
+      setError("Couldn't create the game. Check the console for details.");
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -144,10 +164,12 @@ export default function SelectTemplate() {
       />
       <Button
         onClick={startGame}
+        disabled={!selectedTemplate || starting}
         className="bg-yellow-400 hover:bg-yellow-500 px-4 py-2 rounded font-bold"
       >
-        Start Game
+        {starting ? "Starting..." : "Start Game"}
       </Button>
+      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
     </div>
   );
 }

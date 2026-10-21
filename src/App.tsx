@@ -20,7 +20,7 @@ function PrivateRoute({ children }: { children: React.ReactElement }) {
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="ui-theme">
-      <BrowserRouter basename="/jeopardy">
+      <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

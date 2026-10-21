@@ -1,3 +1,7 @@
-VITE_PB_URL="YOUR_URL_HERE"
-VITE_PB_SUPERUSER_EMAIL="YOUR_ID_HERE"
-VITE_PB_SUPERUSER_PASSWORD="YOUR_PASSWORD_HERE"
+# Frontend (baked into the public JS bundle — never put secrets in VITE_ vars)
+VITE_PB_URL="https://pb.danishali.dev"
+
+# Only used by scripts/init-db.mjs when run from your machine. Do NOT add these to Vercel.
+# PB_URL="https://pb.danishali.dev"
+# PB_SUPERUSER_EMAIL=""
+# PB_SUPERUSER_PASSWORD=""

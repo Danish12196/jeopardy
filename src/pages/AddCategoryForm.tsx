@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,28 +12,14 @@ import {
 } from "@/components/ui/select";
 import pb from "@/pb";
 
+const difficultyOptions = ["Easy", "Medium", "Hard"];
+
 export default function AddCategoryForm() {
   const [name, setName] = useState("");
   const [difficulty, setDifficulty] = useState("Easy");
-  const [difficultyOptions, setDifficultyOptions] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchFieldOptions = async () => {
-      const records = await pb.collections.getOne(
-        "question_categories"
-      );
-      const difficultyField = records.fields.find(
-        (f: any) => f.name === "difficulty" && f.type === "select"
-      );
-
-      if (difficultyField) {
-        setDifficultyOptions(difficultyField.values || []);
-      }
-    };
-    fetchFieldOptions();
-  }, []);
 
   const handleSubmit = async () => {
+    if (!name.trim()) return;
     await pb
       .collection("question_categories")
       .create({ name, difficulty, isPublic: true });

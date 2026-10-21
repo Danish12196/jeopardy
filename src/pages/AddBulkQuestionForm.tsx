@@ -22,6 +22,9 @@ type Question = {
   difficulty: string;
 };
 
+// Order of questions within a category (1 = easiest, shown as the lowest value).
+const difficultyOptions = ["1", "2", "3", "4", "5"];
+
 export default function AddBulkQuestionForm() {
   const [categories, setCategories] = useState<any[]>([]);
   const [questions, setQuestions] = useState<Question[]>([
@@ -34,7 +37,6 @@ export default function AddBulkQuestionForm() {
       difficulty: "1",
     },
   ]);
-  const [difficultyOptions, setDifficultyOptions] = useState<string[]>([]);
 
   const updateQuestion = <K extends keyof Question>(
     index: number,
@@ -73,7 +75,7 @@ export default function AddBulkQuestionForm() {
     const batch = pb.createBatch();
 
     for (const q of validQuestions) {
-      batch.collection("questions").create(q);
+      batch.collection("questions").create({ ...q, difficulty: Number(q.difficulty) });
     }
 
     try {
@@ -103,19 +105,6 @@ export default function AddBulkQuestionForm() {
     loadCategories();
   }, []);
 
-  useEffect(() => {
-    const fetchFieldOptions = async () => {
-      const records = await pb.collections.getOne("questions");
-      const difficultyField = records.fields.find(
-        (f: any) => f.name === "difficulty" && f.type === "select"
-      );
-
-      if (difficultyField) {
-        setDifficultyOptions(difficultyField.values || []);
-      }
-    };
-    fetchFieldOptions();
-  }, []);
 
   return (
     <div className="space-y-4">
