@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import superuserClient from "@/super-user.js";
+import pb from "@/pb";
 import {
   Select,
   SelectContent,
@@ -29,7 +29,7 @@ export default function SelectTemplate() {
 
   useEffect(() => {
     const fetchTemplates = async () => {
-      const records = await superuserClient
+      const records = await pb
         .collection("game_templates")
         .getFullList({
           sort: "-created",
@@ -45,7 +45,7 @@ export default function SelectTemplate() {
       if (!selectedTemplate) return;
       const categoryRecords = await Promise.all(
         selectedTemplate.categories.map((id: string) =>
-          superuserClient.collection("question_categories").getOne(id)
+          pb.collection("question_categories").getOne(id)
         )
       );
       const names = categoryRecords.map((cat) => cat.name);
@@ -67,7 +67,7 @@ export default function SelectTemplate() {
     };
 
     try {
-      const gameRecord = await superuserClient
+      const gameRecord = await pb
         .collection("games")
         .create(newGame);
 

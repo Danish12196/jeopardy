@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import superuserClient from "@/super-user.js";
+import pb from "@/pb";
 import { ScrollArea } from "@/components/ui/scroll-area"; // Optional for horizontal overflow
 
 type Question = {
@@ -70,7 +70,7 @@ export default function AddBulkQuestionForm() {
         q.question.trim() && q.answer.trim() && q.value && q.category.trim()
     );
 
-    const batch = superuserClient.createBatch();
+    const batch = pb.createBatch();
 
     for (const q of validQuestions) {
       batch.collection("questions").create(q);
@@ -95,7 +95,7 @@ export default function AddBulkQuestionForm() {
 
   useEffect(() => {
     const loadCategories = async () => {
-      const records = await superuserClient
+      const records = await pb
         .collection("question_categories")
         .getFullList();
       setCategories(records);
@@ -105,9 +105,9 @@ export default function AddBulkQuestionForm() {
 
   useEffect(() => {
     const fetchFieldOptions = async () => {
-      const records = await superuserClient.collections.getOne("questions");
+      const records = await pb.collections.getOne("questions");
       const difficultyField = records.fields.find(
-        (f) => f.name === "difficulty" && f.type === "select"
+        (f: any) => f.name === "difficulty" && f.type === "select"
       );
 
       if (difficultyField) {

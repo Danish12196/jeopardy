@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import superuserClient from "@/super-user.js";
+import pb from "@/pb";
 
 export default function AddCategoryForm() {
   const [name, setName] = useState("");
@@ -19,11 +19,11 @@ export default function AddCategoryForm() {
 
   useEffect(() => {
     const fetchFieldOptions = async () => {
-      const records = await superuserClient.collections.getOne(
+      const records = await pb.collections.getOne(
         "question_categories"
       );
       const difficultyField = records.fields.find(
-        (f) => f.name === "difficulty" && f.type === "select"
+        (f: any) => f.name === "difficulty" && f.type === "select"
       );
 
       if (difficultyField) {
@@ -34,7 +34,7 @@ export default function AddCategoryForm() {
   }, []);
 
   const handleSubmit = async () => {
-    await superuserClient
+    await pb
       .collection("question_categories")
       .create({ name, difficulty, isPublic: true });
     setName("");
