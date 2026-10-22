@@ -9,8 +9,12 @@ export default function GameBoard() {
   const [questions, setQuestions] = useState<any[][]>([]);
   const [teams, setTeams] = useState<{ id: string; name: string; score: number }[]>([]);
 
-  const [values] = useState([100, 200, 300, 400, 500]);
   const [usedQuestions, setUsedQuestions] = useState<string[]>([]);
+
+  // Board size follows the template: one column per category, one row per question.
+  const cols = Math.max(categories.length, 1);
+  const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
+  const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
 
   const [activeQuestion, setActiveQuestion] = useState<any | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -152,15 +156,15 @@ export default function GameBoard() {
       {/* Main Board Area */}
       <div className="flex-1 flex items-center justify-center">
         {!activeQuestion ? (
-          <div className="grid grid-cols-6 gap-2 w-full max-w-7xl h-[70vh]">
+          <div className="grid gap-2 w-full max-w-7xl h-[70vh]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
             {categories.map((cat, i) => (
               <div key={`cat-${i}`} className="bg-blue-800 flex items-center justify-center text-center p-2 font-bold text-2xl uppercase border-4 border-black shadow-inner shadow-blue-500">
                 {cat}
               </div>
             ))}
             {Array.from({ length: categories.length * values.length }).map((_, i) => {
-              const row = Math.floor(i / 6);
-              const col = i % 6;
+              const row = Math.floor(i / cols);
+              const col = i % cols;
               const value = values[row];
               const q = questions[col]?.[row];
               const isUsed = usedQuestions.includes(q?.id || "");

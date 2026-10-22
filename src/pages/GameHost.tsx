@@ -11,8 +11,12 @@ export default function GameHost() {
   const [categories, setCategories] = useState<string[]>([]);
   const [questions, setQuestions] = useState<any[][]>([]);
 
-  const [values] = useState([100, 200, 300, 400, 500]);
   const [usedQuestions, setUsedQuestions] = useState<string[]>([]);
+
+  // Board size follows the template: one column per category, one row per question.
+  const cols = Math.max(categories.length, 1);
+  const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
+  const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
 
   // Local state for host
   const [selectedTile, setSelectedTile] = useState<{
@@ -195,15 +199,15 @@ export default function GameHost() {
         {/* Left Side: Game Board Controls */}
         <div className="w-1/2 flex flex-col">
           {!selectedTile ? (
-            <div className="grid grid-cols-6 gap-1 border border-yellow-400">
+            <div className="grid gap-1 border border-yellow-400" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
               {categories.map((cat, i) => (
                 <div key={i} className="bg-blue-800 text-center py-2 font-bold text-xs uppercase border border-yellow-400 truncate px-1">
                   {cat}
                 </div>
               ))}
               {Array.from({ length: categories.length * values.length }).map((_, i) => {
-                const row = Math.floor(i / 6);
-                const col = i % 6;
+                const row = Math.floor(i / cols);
+                const col = i % cols;
                 const value = values[row];
                 const q = questions[col]?.[row];
                 const isUsed = usedQuestions.includes(q?.id || "");
