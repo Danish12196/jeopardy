@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { motion, AnimatePresence } from "framer-motion";
 import AddCategoryForm from "./AddCategoryForm";
 import AddBulkQuestionForm from "./AddBulkQuestionForm";
 import SelectTemplate from "./SelectTemplate";
@@ -54,68 +55,100 @@ export default function GameSetup() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full p-4 mx-auto text-white bg-blue-950">
-      <h1 className="text-3xl font-bold mb-6 text-yellow-400">Jeopardy Game Setup</h1>
+    <div className="flex flex-col h-screen w-full max-w-6xl mx-auto p-4 md:p-8 text-foreground bg-background bg-animated-gradient">
+      <motion.h1
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-4xl font-bold mb-8 text-accent drop-shadow-md text-center md:text-left"
+      >
+        Jeopardy Game Setup
+      </motion.h1>
 
-      <div className="bg-blue-900 p-4 rounded mb-6 border border-blue-700">
-        <h2 className="text-xl font-bold mb-4">1. Select Teams</h2>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.1 }}
+        className="bg-card/60 backdrop-blur-md p-6 rounded-2xl mb-8 border border-border/50 shadow-xl"
+      >
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <span className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center text-lg">1</span>
+            Select Teams
+        </h2>
 
-        <div className="flex gap-4 mb-4">
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
             <Input
               value={newTeamName}
               onChange={e => setNewTeamName(e.target.value)}
               placeholder="New Team Name"
-              className="text-black bg-white"
+              className="md:max-w-sm"
+              onKeyDown={(e) => e.key === 'Enter' && createTeam()}
             />
-            <Button onClick={createTeam} className="bg-yellow-400 text-black hover:bg-yellow-500 font-bold">Add Team</Button>
+            <Button onClick={createTeam} variant="jeopardy">Add Team</Button>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-            {availableTeams.length === 0 && <p className="text-gray-400">No teams found. Create one above.</p>}
+        <div className="flex flex-wrap gap-3">
+            {availableTeams.length === 0 && <p className="text-muted-foreground italic">No teams found. Create one above to get started.</p>}
+            <AnimatePresence>
             {availableTeams.map(t => (
-                <button
+                <motion.button
                     key={t.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => toggleTeam(t.id)}
-                    className={`px-4 py-2 rounded border-2 font-bold ${
+                    className={`px-6 py-3 rounded-xl border-2 font-bold transition-all ${
                         selectedTeams.includes(t.id)
-                        ? "bg-green-600 border-green-400 text-white"
-                        : "bg-blue-800 border-blue-600 text-gray-300 hover:bg-blue-700"
+                        ? "bg-green-600 border-green-400 text-white shadow-[0_0_15px_rgba(74,222,128,0.4)]"
+                        : "bg-secondary border-border/50 text-secondary-foreground hover:border-primary/50"
                     }`}
                 >
                     {t.name}
-                </button>
+                </motion.button>
             ))}
+            </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="bg-blue-900 p-4 rounded flex-1 border border-blue-700 overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">2. Select or Create Content</h2>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-card/60 backdrop-blur-md p-6 rounded-2xl flex-1 border border-border/50 shadow-xl flex flex-col min-h-0"
+      >
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <span className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center text-lg">2</span>
+            Select or Create Content
+        </h2>
 
-        <Tabs defaultValue="use-template" className="w-full">
-            <TabsList className="bg-blue-950 border border-blue-800 mb-4">
-            <TabsTrigger value="use-template" className="data-[state=active]:bg-blue-700 data-[state=active]:text-yellow-400">Use a Template</TabsTrigger>
-            <TabsTrigger value="create-template" className="data-[state=active]:bg-blue-700 data-[state=active]:text-yellow-400">Create a template</TabsTrigger>
-            <TabsTrigger value="add-categories" className="data-[state=active]:bg-blue-700 data-[state=active]:text-yellow-400">Add New Categories</TabsTrigger>
-            <TabsTrigger value="add-bulk-questions" className="data-[state=active]:bg-blue-700 data-[state=active]:text-yellow-400">Add Bulk Questions</TabsTrigger>
+        <Tabs defaultValue="use-template" className="w-full flex-1 flex flex-col min-h-0">
+            <TabsList className="bg-muted border border-border/50 mb-6 flex-wrap h-auto p-1 rounded-xl">
+                <TabsTrigger value="use-template" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Use a Template</TabsTrigger>
+                <TabsTrigger value="create-template" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Create a Template</TabsTrigger>
+                <TabsTrigger value="add-categories" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Categories</TabsTrigger>
+                <TabsTrigger value="add-bulk-questions" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Questions</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="use-template">
-                <SelectTemplate selectedTeams={selectedTeams} availableTeams={availableTeams} />
-            </TabsContent>
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <TabsContent value="use-template" className="m-0 mt-2">
+                    <SelectTemplate selectedTeams={selectedTeams} />
+                </TabsContent>
 
-            <TabsContent value="create-template">
-                <CreateTemplate />
-            </TabsContent>
+                <TabsContent value="create-template" className="m-0 mt-2">
+                    <CreateTemplate />
+                </TabsContent>
 
-            <TabsContent value="add-categories">
-                <AddCategoryForm />
-            </TabsContent>
+                <TabsContent value="add-categories" className="m-0 mt-2">
+                    <AddCategoryForm />
+                </TabsContent>
 
-            <TabsContent value="add-bulk-questions">
-                <AddBulkQuestionForm />
-            </TabsContent>
+                <TabsContent value="add-bulk-questions" className="m-0 mt-2">
+                    <AddBulkQuestionForm />
+                </TabsContent>
+            </div>
         </Tabs>
-      </div>
+      </motion.div>
     </div>
   );
 }

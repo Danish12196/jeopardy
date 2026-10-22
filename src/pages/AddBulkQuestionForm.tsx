@@ -1,8 +1,7 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Select,
   SelectTrigger,
@@ -11,7 +10,6 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import pb from "@/pb";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Question = {
   question: string;
@@ -39,6 +37,7 @@ export default function AddBulkQuestionForm() {
       isPublic: false
     },
   ]);
+  const [success, setSuccess] = useState(false);
 
   const updateQuestion = <K extends keyof Question>(
     index: number,
@@ -75,6 +74,8 @@ export default function AddBulkQuestionForm() {
         q.question.trim() && q.answer.trim() && q.category.trim()
     );
 
+    if (validQuestions.length === 0) return;
+
     const batch = pb.createBatch();
 
     for (const q of validQuestions) {
@@ -98,6 +99,8 @@ export default function AddBulkQuestionForm() {
           isPublic: false
         },
       ]);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error("Batch error:", err);
     }
@@ -127,31 +130,43 @@ export default function AddBulkQuestionForm() {
   }, []);
 
   return (
-    <div className="space-y-4 bg-blue-800 p-4 rounded border border-blue-600">
-      <ScrollArea className="max-w-full overflow-auto rounded border border-blue-500">
-        <table className="w-full text-sm">
+    <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="space-y-6 bg-card/50 p-6 rounded-xl border border-border/40"
+    >
+      <div className="overflow-x-auto custom-scrollbar rounded-xl border border-border/50 shadow-inner bg-background/30">
+        <table className="w-full text-sm min-w-[900px]">
           <thead>
-            <tr className="border-b border-blue-500 bg-blue-900 text-left text-white">
-              <th className="p-2">Question</th>
-              <th className="p-2">Answer</th>
-              <th className="p-2">Hint</th>
-              <th className="p-2 w-20">Value</th>
-              <th className="p-2 w-48">Category</th>
-              <th className="p-2 w-24">Order (Diff)</th>
-              <th className="p-2 w-24">Public</th>
-              <th className="p-2 w-24">Actions</th>
+            <tr className="border-b border-border/50 bg-secondary/30 text-left text-muted-foreground uppercase tracking-wider text-xs">
+              <th className="p-4 font-bold">Question</th>
+              <th className="p-4 font-bold">Answer</th>
+              <th className="p-4 font-bold">Hint</th>
+              <th className="p-4 font-bold w-24">Value</th>
+              <th className="p-4 font-bold w-48">Category</th>
+              <th className="p-4 font-bold w-28">Order</th>
+              <th className="p-4 font-bold w-24 text-center">Public</th>
+              <th className="p-4 font-bold w-20 text-center"></th>
             </tr>
           </thead>
           <tbody>
+            <AnimatePresence>
             {questions.map((q, i) => (
-              <tr key={i} className="border-b border-blue-600/50 bg-blue-950">
+              <motion.tr
+                key={i}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, height: 0 }}
+                className="border-b border-border/20 last:border-0 hover:bg-muted/10 transition-colors"
+              >
                 <td className="p-2">
                   <Input
                     value={q.question}
                     onChange={(e) =>
                       updateQuestion(i, "question", e.target.value)
                     }
-                    className="bg-white text-black"
+                    className="bg-background text-foreground"
+                    placeholder="Enter question"
                   />
                 </td>
                 <td className="p-2">
@@ -160,14 +175,16 @@ export default function AddBulkQuestionForm() {
                     onChange={(e) =>
                       updateQuestion(i, "answer", e.target.value)
                     }
-                    className="bg-white text-black"
+                    className="bg-background text-foreground"
+                    placeholder="Answer"
                   />
                 </td>
                 <td className="p-2">
                   <Input
                     value={q.hint}
                     onChange={(e) => updateQuestion(i, "hint", e.target.value)}
-                    className="bg-white text-black"
+                    className="bg-background text-foreground"
+                    placeholder="Hint (optional)"
                   />
                 </td>
                 <td className="p-2">
@@ -177,7 +194,7 @@ export default function AddBulkQuestionForm() {
                     onChange={(e) =>
                       updateQuestion(i, "value", +e.target.value)
                     }
-                    className="bg-white text-black"
+                    className="bg-background text-foreground"
                   />
                 </td>
                 <td className="p-2">
@@ -185,7 +202,7 @@ export default function AddBulkQuestionForm() {
                     value={q.category}
                     onValueChange={(val) => updateQuestion(i, "category", val)}
                   >
-                    <SelectTrigger className="bg-white text-black">
+                    <SelectTrigger className="bg-background text-foreground">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -193,7 +210,7 @@ export default function AddBulkQuestionForm() {
                           const isMine = cat.user === pb.authStore.model?.id;
                           return (
                               <SelectItem key={cat.id} value={cat.id}>
-                                {cat.name} {!isMine && "(Public)"}
+                                {cat.name} {!isMine && <span className="opacity-50 text-xs ml-1">(Public)</span>}
                               </SelectItem>
                           );
                       })}
@@ -207,13 +224,13 @@ export default function AddBulkQuestionForm() {
                       updateQuestion(i, "difficulty", val)
                     }
                   >
-                    <SelectTrigger className="bg-white text-black">
+                    <SelectTrigger className="bg-background text-foreground">
                       <SelectValue placeholder="Order" />
                     </SelectTrigger>
                     <SelectContent>
                       {difficultyOptions.map((diff) => (
                         <SelectItem key={diff} value={diff}>
-                          {diff}
+                          Level {diff}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -224,31 +241,48 @@ export default function AddBulkQuestionForm() {
                         type="checkbox"
                         checked={q.isPublic}
                         onChange={(e) => updateQuestion(i, "isPublic", e.target.checked)}
-                        className="w-4 h-4 cursor-pointer"
+                        className="w-5 h-5 cursor-pointer accent-accent"
                     />
                 </td>
-                <td className="p-2">
+                <td className="p-2 text-center">
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => removeRow(i)}
-                    className="w-full"
+                    className="w-8 h-8 p-0 rounded-full"
+                    title="Remove row"
                   >
-                    Del
+                    ✕
                   </Button>
                 </td>
-              </tr>
+              </motion.tr>
             ))}
+            </AnimatePresence>
           </tbody>
         </table>
-      </ScrollArea>
+      </div>
 
-      <div className="flex gap-4">
-        <Button onClick={addRow} className="bg-blue-600 hover:bg-blue-500 font-bold text-white">Add Row</Button>
-        <Button onClick={handleSubmitAll} className="bg-green-600 hover:bg-green-500 font-bold text-white flex-1">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Button onClick={addRow} variant="secondary" className="sm:w-48 font-bold border-2 border-transparent hover:border-border">
+            + Add Row
+        </Button>
+        <Button onClick={handleSubmitAll} variant="jeopardy" className="flex-1">
           Save All Valid Questions
         </Button>
       </div>
-    </div>
+
+      <AnimatePresence>
+          {success && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-green-400 font-bold text-center bg-green-900/20 p-3 rounded-lg"
+              >
+                  Questions saved successfully!
+              </motion.p>
+          )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

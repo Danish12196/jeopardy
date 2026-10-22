@@ -23,13 +23,15 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "framer-motion": "^14.6.0",
     "lucide-react": "^0.525.0",
     "pocketbase": "^0.26.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.3",
-    "tailwind-merge": "^3.3.1",
-    "tailwindcss": "^4.1.11"
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.1.11",
+    "use-sound": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
