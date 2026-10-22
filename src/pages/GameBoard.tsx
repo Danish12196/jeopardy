@@ -14,12 +14,14 @@ export default function GameBoard() {
   // Board size follows the template: one column per category, one row per question.
   const cols = Math.max(categories.length, 1);
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
+  // Keep values matching the row count (100, 200, ...)
   const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
 
   const [activeQuestion, setActiveQuestion] = useState<any | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
-  const [buzzedTeamName, setBuzzedTeamName] = useState<string | null>(null);
+  const [buzzerQueue, setBuzzerQueue] = useState<any[]>([]);
+  const [hostForceShowQuestion, setHostForceShowQuestion] = useState(false);
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -48,7 +50,6 @@ export default function GameBoard() {
           return allQuestions
             .filter((q) => q.category === cat.id)
             .sort((a, b) => a.difficulty - b.difficulty)
-            .slice(0, 5)
             .map((q, i) => ({
               id: q.id,
               question: q.question,
@@ -79,12 +80,8 @@ export default function GameBoard() {
           if (active) setActiveQuestion(active);
         }
         setShowAnswer(g.showAnswer || false);
-
-        if (g.buzzerQueue && g.buzzerQueue.length > 0) {
-            const firstId = g.buzzerQueue[0];
-            const t = mappedTeams.find(tm => tm.id === firstId);
-            if (t) setBuzzedTeamName(t.name);
-        }
+        setHostForceShowQuestion(g.hostForceShowQuestion || false);
+        setBuzzerQueue(g.buzzerQueue || []);
 
       } catch (err) {
         console.error("Board fetch error:", err);
@@ -103,6 +100,8 @@ export default function GameBoard() {
 
         setUsedQuestions(g.answeredQuestions || []);
         setShowAnswer(g.showAnswer || false);
+        setHostForceShowQuestion(g.hostForceShowQuestion || false);
+        setBuzzerQueue(g.buzzerQueue || []);
 
         setTeams((prev) =>
           prev.map((t) => ({
@@ -110,17 +109,6 @@ export default function GameBoard() {
             score: g.teamScores?.find((ts: any) => ts.id === t.id)?.score ?? t.score,
           }))
         );
-
-        if (g.buzzerQueue && g.buzzerQueue.length > 0) {
-            setTeams(prevTeams => {
-                const firstId = g.buzzerQueue[0];
-                const t = prevTeams.find(tm => tm.id === firstId);
-                if (t) setBuzzedTeamName(t.name);
-                return prevTeams;
-            });
-        } else {
-            setBuzzedTeamName(null);
-        }
 
         if (g.currentActiveQuestion) {
           setQuestions((prevQs) => {
@@ -162,16 +150,23 @@ export default function GameBoard() {
                 {cat}
               </div>
             ))}
-            {Array.from({ length: categories.length * values.length }).map((_, i) => {
-              const row = Math.floor(i / cols);
+            {Array.from({ length: categories.length * rowCount }).map((_, i) => {
               const col = i % cols;
+              const row = Math.floor(i / cols);
               const value = values[row];
               const q = questions[col]?.[row];
-              const isUsed = usedQuestions.includes(q?.id || "");
+
+              if (!q) {
+                  return (
+                      <div key={i} className="flex items-center justify-center text-center p-4 border-4 border-black bg-blue-950/20" />
+                  );
+              }
+
+              const isUsed = usedQuestions.includes(q.id);
 
               return (
                 <div
-                  key={q?.id || i}
+                  key={q.id || i}
                   className={`flex items-center justify-center text-center p-4 text-5xl font-bold font-mono border-4 border-black transition-all duration-500 ${
                     isUsed ? "bg-blue-950 text-blue-950/50" : "bg-blue-700 text-yellow-400 shadow-inner shadow-blue-400"
                   }`}
@@ -184,18 +179,31 @@ export default function GameBoard() {
         ) : (
           <div className="w-full h-[70vh] bg-blue-800 border-8 border-black shadow-[inset_0_0_50px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center p-12 text-center animate-in zoom-in duration-500">
 
-             {buzzedTeamName && !showAnswer && (
+             {buzzerQueue.length > 0 && !showAnswer && (
                  <div className="absolute top-1/4 bg-yellow-500 text-black px-8 py-4 rounded-full text-3xl font-bold shadow-2xl animate-bounce">
-                     🎤 {buzzedTeamName} buzzed in!
+                     🎤 {teams.find(t => t.id === buzzerQueue[0].teamId)?.name} buzzed in!
                  </div>
              )}
 
-            <h1 className="text-6xl font-bold leading-tight mb-12 max-w-5xl">
-              {activeQuestion.question}
-            </h1>
+             {buzzerQueue.length > 0 && !showAnswer && (
+                 <div className="absolute top-1/3 mt-4 text-white text-lg">
+                    {buzzerQueue.length > 1 && buzzerQueue.slice(1).map((q, idx) => (
+                        <div key={idx} className="mb-1 opacity-75">
+                            {teams.find(t => t.id === q.teamId)?.name} (+{((q.time - buzzerQueue[0].time) / 1000).toFixed(2)}s)
+                        </div>
+                    ))}
+                 </div>
+             )}
+
+            {/* If someone buzzed, hide the question unless host overrides */}
+            {(!buzzerQueue.length || hostForceShowQuestion || showAnswer) && (
+                <h1 className="text-6xl font-bold leading-tight mb-12 max-w-5xl">
+                  {activeQuestion.question}
+                </h1>
+            )}
 
             {showAnswer && (
-              <div className="text-5xl font-bold text-yellow-400 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="text-5xl font-bold text-yellow-400 animate-in fade-in slide-in-from-bottom-8 duration-700 mt-4">
                 {activeQuestion.answer}
               </div>
             )}
