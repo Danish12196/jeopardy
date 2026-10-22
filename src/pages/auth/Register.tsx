@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import pb from "@/pb";
 
 export default function Register() {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -20,6 +21,7 @@ export default function Register() {
     }
     try {
       await pb.collection("users").create({
+        username,
         email,
         password,
         passwordConfirm,
@@ -36,6 +38,14 @@ export default function Register() {
       <div className="max-w-md w-full text-center">
         <h1 className="text-3xl font-bold mb-6 text-yellow-400">Sign Up</h1>
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
+          <Input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="text-black"
+            required
+          />
           <Input
             type="email"
             placeholder="Email"

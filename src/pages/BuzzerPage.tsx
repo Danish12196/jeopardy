@@ -70,14 +70,18 @@ export default function BuzzerPage() {
 
     // Immediately show feedback
     setHasBuzzedLocally(true);
+    const buzzTime = Date.now();
 
     try {
         // Fetch latest game state to avoid race conditions with other players as much as possible
         const latestGame = await pb.collection("games").getOne(game.id);
         const currentQueue = latestGame.buzzerQueue || [];
 
-        if (!currentQueue.includes(selectedTeamId)) {
-            const newQueue = [...currentQueue, selectedTeamId];
+        if (!currentQueue.find((q: any) => q.teamId === selectedTeamId)) {
+            const newQueue = [...currentQueue, { teamId: selectedTeamId, time: buzzTime }];
+            // Sort just in case
+            newQueue.sort((a, b) => a.time - b.time);
+
             await pb.collection("games").update(game.id, {
                 buzzerQueue: newQueue
             });
@@ -114,9 +118,11 @@ export default function BuzzerPage() {
   // Determine buzzer state
   let buzzerState: "locked" | "unlocked" | "buzzed" | "too-late" = "locked";
 
+  const queueEntry = (game.buzzerQueue || []).find((q: any) => q.teamId === selectedTeamId);
+
   if (game.buzzerUnlocked) {
       buzzerState = "unlocked";
-  } else if (game.buzzerQueue?.includes(selectedTeamId)) {
+  } else if (queueEntry) {
       buzzerState = "buzzed";
   } else if (game.buzzerQueue?.length > 0) {
       buzzerState = "too-late";

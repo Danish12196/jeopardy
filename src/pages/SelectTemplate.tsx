@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import pb from "@/pb";
 import {
   Select,
@@ -18,78 +17,99 @@ function makeGameCode(length = 6) {
   return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
-export default function SelectTemplate({ teams }: { teams: string[] }) {
+export default function SelectTemplate({ selectedTeams }: { selectedTeams: string[], availableTeams: any[] }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
-  const [categories, setCategories] = useState([
-    "Cat 1",
-    "Cat 2",
-    "Cat 3",
-    "Cat 4",
-    "Cat 5",
-    "Cat 6",
-  ]);
-  const [values, setValues] = useState([100, 200, 300, 400, 500]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [values, setValues] = useState<number[]>([]);
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchTemplates = async () => {
-      const records = await pb
-        .collection("game_templates")
-        .getFullList({
-          sort: "-created",
+      try {
+        const records = await pb
+            .collection("game_templates")
+            .getFullList({
+            sort: "-created",
+            expand: "user",
+            });
+
+        // Filter based on our access rules (user owns it or it's public) is already handled by PocketBase
+        // but we'll sort them to show user's templates first, then public ones.
+        const sorted = records.sort((a, b) => {
+            const aMine = a.user === pb.authStore.model?.id;
+            const bMine = b.user === pb.authStore.model?.id;
+            if (aMine && !bMine) return -1;
+            if (!aMine && bMine) return 1;
+            return 0;
         });
 
-      setTemplates(records);
+        setTemplates(sorted);
+      } catch (err) {
+          console.error("Failed to fetch templates:", err);
+      }
     };
     fetchTemplates();
   }, []);
 
   useEffect(() => {
-    const fetchCategoryNames = async () => {
+    const fetchTemplateDetails = async () => {
       if (!selectedTemplate) return;
-      const categoryRecords = await Promise.all(
-        selectedTemplate.categories.map((id: string) =>
-          pb.collection("question_categories").getOne(id)
-        )
-      );
-      const names = categoryRecords.map((cat) => cat.name);
-      setCategories(names);
+      try {
+          const categoryRecords = await Promise.all(
+            selectedTemplate.categories.map((id: string) =>
+              pb.collection("question_categories").getOne(id)
+            )
+          );
+          setCategories(categoryRecords.map((cat) => cat.name));
+
+          // Compute required values list based on max questions per category
+          const qs = await pb.collection("questions").getFullList({
+              filter: selectedTemplate.questions.map((id: string) => `id="${id}"`).join(" || ")
+          });
+
+          let maxQs = 0;
+          for (const catId of selectedTemplate.categories) {
+              const qCount = qs.filter(q => q.category === catId).length;
+              if (qCount > maxQs) maxQs = qCount;
+          }
+
+          setValues(Array.from({ length: maxQs }, (_, i) => (i + 1) * 100));
+
+      } catch (err) {
+          console.error("Failed to fetch template details:", err);
+      }
     };
-    fetchCategoryNames();
+    fetchTemplateDetails();
   }, [selectedTemplate]);
 
   const startGame = async () => {
     if (!selectedTemplate || starting) return;
-    const teamNames = teams.map((t) => t.trim()).filter(Boolean);
-    if (teamNames.length === 0) {
-      setError("Add at least one team.");
+    if (selectedTeams.length === 0) {
+      setError("Please select at least one team above.");
       return;
     }
 
     setStarting(true);
     setError(null);
     try {
-      const teamRecords = await Promise.all(
-        teamNames.map((name) => pb.collection("teams").create({ name }))
-      );
-
       const uniqueID = makeGameCode();
       await pb.collection("games").create({
         title: `Game: ${selectedTemplate.title}`,
         uniqueID,
         template: selectedTemplate.id,
-        teams: teamRecords.map((t) => t.id),
+        teams: selectedTeams,
         categories,
         values,
-        teamScores: teamRecords.map((t) => ({ id: t.id, score: 0 })),
+        teamScores: selectedTeams.map((t) => ({ id: t, score: 0 })),
         answeredQuestions: [],
         buzzerQueue: [],
         showAnswer: false,
         buzzerUnlocked: false,
+        hostForceShowQuestion: false
       });
 
       navigate(`/game/${uniqueID}/host`);
@@ -102,8 +122,8 @@ export default function SelectTemplate({ teams }: { teams: string[] }) {
   };
 
   return (
-    <div>
-      <label className="block mt-4 mb-2 font-semibold">Select Template:</label>
+    <div className="bg-blue-800 p-4 rounded border border-blue-600">
+      <label className="block mb-2 font-semibold">Select Template:</label>
       <Select
         value={selectedTemplate?.id || ""}
         onValueChange={(val) => {
@@ -111,65 +131,39 @@ export default function SelectTemplate({ teams }: { teams: string[] }) {
           setSelectedTemplate(t || null);
         }}
       >
-        <SelectTrigger>
-          <SelectValue placeholder="Template" />
+        <SelectTrigger className="bg-blue-950 text-white border-blue-500">
+          <SelectValue placeholder="Choose a template..." />
         </SelectTrigger>
-        <SelectContent>
-          {templates.map((template) => (
-            <SelectItem key={template.id} value={template.id}>
-              {template.title}
-            </SelectItem>
-          ))}
+        <SelectContent className="bg-blue-950 text-white border-blue-500">
+          {templates.map((template) => {
+            const isMine = template.user === pb.authStore.model?.id;
+            const authorName = template.expand?.user?.username || template.expand?.user?.email || "Unknown";
+            return (
+                <SelectItem key={template.id} value={template.id} className="focus:bg-blue-800">
+                {template.title} {isMine ? "(Yours)" : `(by ${authorName})`}
+                </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
+
       {selectedTemplate && (
-        <div className="mt-4 text-sm text-muted-foreground">
-          <p>
-            <strong>Title:</strong> {selectedTemplate.title}
-          </p>
-          <p>
-            <strong>Categories:</strong> {selectedTemplate.categories.length}
-          </p>
-          <p>
-            <strong>Questions:</strong> {selectedTemplate.questions.length}
-          </p>
+        <div className="mt-4 text-sm text-gray-300 bg-blue-900 p-4 rounded border border-blue-700">
+          <p><strong>Title:</strong> {selectedTemplate.title}</p>
+          <p><strong>Categories:</strong> {categories.join(", ") || selectedTemplate.categories.length}</p>
+          <p><strong>Questions:</strong> {selectedTemplate.questions.length}</p>
+          <p><strong>Board Size:</strong> {categories.length}x{values.length}</p>
         </div>
       )}
 
-      <label className="block mt-4 mb-2 font-semibold">
-        Template Categories:
-      </label>
-      {categories.map((cat, i) => (
-        <Input
-          key={i}
-          value={cat}
-          onChange={(e) => {
-            const newCats = [...categories];
-            newCats[i] = e.target.value;
-            setCategories(newCats);
-          }}
-          className="mb-2 p-2 w-full rounded border"
-        />
-      ))}
-      <label className="block mt-4 mb-2 font-semibold">
-        Row Values (comma separated):
-      </label>
-      <Input
-        value={values.join(",")}
-        onChange={(e) => {
-          const vals = e.target.value.split(",").map((v) => parseInt(v.trim()));
-          setValues(vals);
-        }}
-        className="mb-4 p-2 w-full rounded border"
-      />
       <Button
         onClick={startGame}
-        disabled={!selectedTemplate || starting}
-        className="bg-yellow-400 hover:bg-yellow-500 px-4 py-2 rounded font-bold"
+        disabled={!selectedTemplate || starting || selectedTeams.length === 0}
+        className="mt-6 bg-yellow-400 text-black hover:bg-yellow-500 px-8 py-4 rounded font-bold w-full text-lg"
       >
-        {starting ? "Starting..." : "Start Game"}
+        {starting ? "Starting Game..." : "Start Game"}
       </Button>
-      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+      {error && <p className="mt-2 text-sm text-red-500 font-bold">{error}</p>}
     </div>
   );
 }

@@ -32,23 +32,29 @@ pb.autoCancellation(false);
 // can create or change content.
 const LOGGED_IN = '@request.auth.id != ""';
 const AUTHOR_RULES = {
-  listRule: "",
-  viewRule: "",
+  listRule: "isPublic = true || user = @request.auth.id || @request.auth.isSuperuser = true",
+  viewRule: "isPublic = true || user = @request.auth.id || @request.auth.isSuperuser = true",
   createRule: LOGGED_IN,
-  updateRule: LOGGED_IN,
-  deleteRule: LOGGED_IN,
+  updateRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
+  deleteRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
 };
 
 // Guests on the buzzer page may only add themselves to buzzerQueue, and only
 // while the host has the buzzers unlocked. Every other field needs a login.
 const HOST_ONLY_GAME_FIELDS = [
   "title", "uniqueID", "template", "teams", "categories", "values", "teamScores",
-  "answeredQuestions", "currentActiveQuestion", "currentActiveTeam", "showAnswer", "buzzerUnlocked",
+  "answeredQuestions", "currentActiveQuestion", "currentActiveTeam", "showAnswer", "buzzerUnlocked", "hostForceShowQuestion"
 ];
 const GUEST_BUZZ =
   "buzzerUnlocked = true && " +
   HOST_ONLY_GAME_FIELDS.map((f) => `@request.body.${f}:isset = false`).join(" && ");
-const GAME_RULES = { ...AUTHOR_RULES, updateRule: `${LOGGED_IN} || (${GUEST_BUZZ})` };
+const GAME_RULES = {
+  listRule: "",
+  viewRule: "",
+  createRule: LOGGED_IN,
+  deleteRule: LOGGED_IN,
+  updateRule: `${LOGGED_IN} || (${GUEST_BUZZ})`
+};
 
 const timestamps = [
   { name: "created", type: "autodate", onCreate: true, onUpdate: false },
@@ -68,9 +74,28 @@ const relation = (name, target, { single = false, required = false } = {}) => ({
 // Order matters: a collection must come after anything it relates to.
 const COLLECTIONS = [
   {
+    name: "users",
+    rules: {
+      listRule: "",
+      viewRule: "",
+      createRule: "",
+      updateRule: "id = @request.auth.id && @request.data.isSuperuser:isset = false",
+      deleteRule: "id = @request.auth.id",
+    },
+    fields: [
+      { name: "username", type: "text" },
+      { name: "isSuperuser", type: "bool" },
+    ],
+    isAuth: true,
+  },
+  {
     name: "teams",
     rules: AUTHOR_RULES,
-    fields: [{ name: "name", type: "text", required: true }],
+    fields: [
+      { name: "name", type: "text", required: true },
+      relation("user", "users", { single: true, required: true }),
+      { name: "isPublic", type: "bool" },
+    ],
   },
   {
     name: "question_categories",
@@ -79,6 +104,7 @@ const COLLECTIONS = [
       { name: "name", type: "text", required: true },
       { name: "difficulty", type: "select", maxSelect: 1, values: ["Easy", "Medium", "Hard"] },
       { name: "isPublic", type: "bool" },
+      relation("user", "users", { single: true, required: true }),
     ],
   },
   {
@@ -91,6 +117,8 @@ const COLLECTIONS = [
       { name: "value", type: "number" },
       relation("category", "question_categories", { single: true, required: true }),
       { name: "difficulty", type: "number" },
+      { name: "isPublic", type: "bool" },
+      relation("user", "users", { single: true, required: true }),
     ],
   },
   {
@@ -100,6 +128,8 @@ const COLLECTIONS = [
       { name: "title", type: "text", required: true },
       relation("categories", "question_categories"),
       relation("questions", "questions"),
+      { name: "isPublic", type: "bool" },
+      relation("user", "users", { single: true, required: true }),
     ],
   },
   {
@@ -119,6 +149,7 @@ const COLLECTIONS = [
       { name: "currentActiveTeam", type: "text" },
       { name: "showAnswer", type: "bool" },
       { name: "buzzerUnlocked", type: "bool" },
+      { name: "hostForceShowQuestion", type: "bool" },
     ],
   },
 ];
@@ -128,13 +159,17 @@ const ids = {}; // collection name -> id
 function resolve(field) {
   if (field.type !== "relation") return field;
   const target = field.collectionId.slice(1);
+  if (target === "users") {
+      ids[target] = "_pb_users_auth_";
+      return { ...field, collectionId: "_pb_users_auth_" };
+  }
   if (!ids[target]) throw new Error(`Relation "${field.name}" points at unknown collection "${target}"`);
   return { ...field, collectionId: ids[target] };
 }
 
 async function findCollection(name) {
   try {
-    return await pb.collections.getOne(name);
+    return await pb.collections.getOne(name === "users" ? "_pb_users_auth_" : name);
   } catch (err) {
     if (err.status === 404) return null;
     throw err;
@@ -142,10 +177,19 @@ async function findCollection(name) {
 }
 
 async function upsert(def) {
-  const desired = [...def.fields, ...timestamps].map(resolve);
+  const isUsers = def.name === "users";
+  const nameToUse = isUsers ? "_pb_users_auth_" : def.name;
+
+  if (isUsers) {
+      ids["users"] = "_pb_users_auth_";
+  }
+
+  // Handle Auth collections specially, we don't create them, they exist
+  // We just patch their fields if missing
+  const desired = isUsers ? [...def.fields] : [...def.fields, ...timestamps].map(resolve);
   const existing = await findCollection(def.name);
 
-  if (!existing) {
+  if (!existing && !isUsers) {
     console.log(`+ create ${def.name} (${desired.length} fields)`);
     if (DRY_RUN) {
       ids[def.name] = `<new:${def.name}>`;
@@ -156,7 +200,15 @@ async function upsert(def) {
     return;
   }
 
-  ids[def.name] = existing.id;
+  if (!existing && isUsers) {
+      // It should exist by default in pocketbase
+      throw new Error("Users collection not found");
+  }
+
+  if (!isUsers) {
+      ids[def.name] = existing.id;
+  }
+
   const have = new Set(existing.fields.map((f) => f.name));
   const missing = desired.filter((f) => !have.has(f.name));
 

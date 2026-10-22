@@ -11,7 +11,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import pb from "@/pb";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Optional for horizontal overflow
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Question = {
   question: string;
@@ -20,10 +20,11 @@ type Question = {
   value: number;
   category: string;
   difficulty: string;
+  isPublic: boolean;
 };
 
 // Order of questions within a category (1 = easiest, shown as the lowest value).
-const difficultyOptions = ["1", "2", "3", "4", "5"];
+const difficultyOptions = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
 export default function AddBulkQuestionForm() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -35,6 +36,7 @@ export default function AddBulkQuestionForm() {
       value: 100,
       category: "",
       difficulty: "1",
+      isPublic: false
     },
   ]);
 
@@ -58,6 +60,7 @@ export default function AddBulkQuestionForm() {
         value: 100,
         category: "",
         difficulty: "1",
+        isPublic: false
       },
     ]);
   };
@@ -69,13 +72,17 @@ export default function AddBulkQuestionForm() {
   const handleSubmitAll = async () => {
     const validQuestions = questions.filter(
       (q) =>
-        q.question.trim() && q.answer.trim() && q.value && q.category.trim()
+        q.question.trim() && q.answer.trim() && q.category.trim()
     );
 
     const batch = pb.createBatch();
 
     for (const q of validQuestions) {
-      batch.collection("questions").create({ ...q, difficulty: Number(q.difficulty) });
+      batch.collection("questions").create({
+          ...q,
+          difficulty: Number(q.difficulty),
+          user: pb.authStore.model?.id
+      });
     }
 
     try {
@@ -88,6 +95,7 @@ export default function AddBulkQuestionForm() {
           value: 100,
           category: "",
           difficulty: "1",
+          isPublic: false
         },
       ]);
     } catch (err) {
@@ -97,39 +105,53 @@ export default function AddBulkQuestionForm() {
 
   useEffect(() => {
     const loadCategories = async () => {
-      const records = await pb
-        .collection("question_categories")
-        .getFullList();
-      setCategories(records);
+      try {
+          const records = await pb
+            .collection("question_categories")
+            .getFullList({ expand: "user" });
+
+          const sorted = records.sort((a, b) => {
+              const aMine = a.user === pb.authStore.model?.id;
+              const bMine = b.user === pb.authStore.model?.id;
+              if (aMine && !bMine) return -1;
+              if (!aMine && bMine) return 1;
+              return 0;
+          });
+
+          setCategories(sorted);
+      } catch (err) {
+          console.error("Failed to load categories:", err);
+      }
     };
     loadCategories();
   }, []);
 
-
   return (
-    <div className="space-y-4">
-      <ScrollArea className="max-w-full overflow-auto rounded border">
+    <div className="space-y-4 bg-blue-800 p-4 rounded border border-blue-600">
+      <ScrollArea className="max-w-full overflow-auto rounded border border-blue-500">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted text-left">
+            <tr className="border-b border-blue-500 bg-blue-900 text-left text-white">
               <th className="p-2">Question</th>
               <th className="p-2">Answer</th>
               <th className="p-2">Hint</th>
-              <th className="p-2">Value</th>
-              <th className="p-2">Category</th>
-              <th className="p-2">Difficulty</th>
-              <th className="p-2">Actions</th>
+              <th className="p-2 w-20">Value</th>
+              <th className="p-2 w-48">Category</th>
+              <th className="p-2 w-24">Order (Diff)</th>
+              <th className="p-2 w-24">Public</th>
+              <th className="p-2 w-24">Actions</th>
             </tr>
           </thead>
           <tbody>
             {questions.map((q, i) => (
-              <tr key={i} className="border-b">
+              <tr key={i} className="border-b border-blue-600/50 bg-blue-950">
                 <td className="p-2">
                   <Input
                     value={q.question}
                     onChange={(e) =>
                       updateQuestion(i, "question", e.target.value)
                     }
+                    className="bg-white text-black"
                   />
                 </td>
                 <td className="p-2">
@@ -138,12 +160,14 @@ export default function AddBulkQuestionForm() {
                     onChange={(e) =>
                       updateQuestion(i, "answer", e.target.value)
                     }
+                    className="bg-white text-black"
                   />
                 </td>
                 <td className="p-2">
                   <Input
                     value={q.hint}
                     onChange={(e) => updateQuestion(i, "hint", e.target.value)}
+                    className="bg-white text-black"
                   />
                 </td>
                 <td className="p-2">
@@ -153,6 +177,7 @@ export default function AddBulkQuestionForm() {
                     onChange={(e) =>
                       updateQuestion(i, "value", +e.target.value)
                     }
+                    className="bg-white text-black"
                   />
                 </td>
                 <td className="p-2">
@@ -160,15 +185,18 @@ export default function AddBulkQuestionForm() {
                     value={q.category}
                     onValueChange={(val) => updateQuestion(i, "category", val)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white text-black">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
+                      {categories.map((cat) => {
+                          const isMine = cat.user === pb.authStore.model?.id;
+                          return (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name} {!isMine && "(Public)"}
+                              </SelectItem>
+                          );
+                      })}
                     </SelectContent>
                   </Select>
                 </td>
@@ -179,8 +207,8 @@ export default function AddBulkQuestionForm() {
                       updateQuestion(i, "difficulty", val)
                     }
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Difficulty" />
+                    <SelectTrigger className="bg-white text-black">
+                      <SelectValue placeholder="Order" />
                     </SelectTrigger>
                     <SelectContent>
                       {difficultyOptions.map((diff) => (
@@ -191,13 +219,22 @@ export default function AddBulkQuestionForm() {
                     </SelectContent>
                   </Select>
                 </td>
+                <td className="p-2 text-center">
+                    <input
+                        type="checkbox"
+                        checked={q.isPublic}
+                        onChange={(e) => updateQuestion(i, "isPublic", e.target.checked)}
+                        className="w-4 h-4 cursor-pointer"
+                    />
+                </td>
                 <td className="p-2">
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => removeRow(i)}
+                    className="w-full"
                   >
-                    Delete
+                    Del
                   </Button>
                 </td>
               </tr>
@@ -207,9 +244,9 @@ export default function AddBulkQuestionForm() {
       </ScrollArea>
 
       <div className="flex gap-4">
-        <Button onClick={addRow}>Add Row</Button>
-        <Button onClick={handleSubmitAll} variant="default">
-          Create All
+        <Button onClick={addRow} className="bg-blue-600 hover:bg-blue-500 font-bold text-white">Add Row</Button>
+        <Button onClick={handleSubmitAll} className="bg-green-600 hover:bg-green-500 font-bold text-white flex-1">
+          Save All Valid Questions
         </Button>
       </div>
     </div>
