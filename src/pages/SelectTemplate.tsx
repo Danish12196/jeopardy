@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 import {
   Select,
@@ -10,14 +11,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Short code players type on the join page. No 0/O/1/I to avoid confusion.
 function makeGameCode(length = 6) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
-export default function SelectTemplate({ selectedTeams }: { selectedTeams: string[], availableTeams: any[] }) {
+export default function SelectTemplate({ selectedTeams }: { selectedTeams: string[] }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -37,8 +37,6 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
             expand: "user",
             });
 
-        // Filter based on our access rules (user owns it or it's public) is already handled by PocketBase
-        // but we'll sort them to show user's templates first, then public ones.
         const sorted = records.sort((a, b) => {
             const aMine = a.user === pb.authStore.model?.id;
             const bMine = b.user === pb.authStore.model?.id;
@@ -66,7 +64,6 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
           );
           setCategories(categoryRecords.map((cat) => cat.name));
 
-          // Compute required values list based on max questions per category
           const qs = await pb.collection("questions").getFullList({
               filter: selectedTemplate.questions.map((id: string) => `id="${id}"`).join(" || ")
           });
@@ -122,8 +119,12 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
   };
 
   return (
-    <div className="bg-blue-800 p-4 rounded border border-blue-600">
-      <label className="block mb-2 font-semibold">Select Template:</label>
+    <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="bg-card/50 p-6 rounded-xl border border-border/40"
+    >
+      <label className="block mb-3 font-semibold text-lg">Select a Template to Play</label>
       <Select
         value={selectedTemplate?.id || ""}
         onValueChange={(val) => {
@@ -131,15 +132,15 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
           setSelectedTemplate(t || null);
         }}
       >
-        <SelectTrigger className="bg-blue-950 text-white border-blue-500">
+        <SelectTrigger className="w-full md:w-2/3 h-12 text-md bg-background">
           <SelectValue placeholder="Choose a template..." />
         </SelectTrigger>
-        <SelectContent className="bg-blue-950 text-white border-blue-500">
+        <SelectContent>
           {templates.map((template) => {
             const isMine = template.user === pb.authStore.model?.id;
             const authorName = template.expand?.user?.username || template.expand?.user?.email || "Unknown";
             return (
-                <SelectItem key={template.id} value={template.id} className="focus:bg-blue-800">
+                <SelectItem key={template.id} value={template.id}>
                 {template.title} {isMine ? "(Yours)" : `(by ${authorName})`}
                 </SelectItem>
             );
@@ -147,23 +148,55 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         </SelectContent>
       </Select>
 
+      <AnimatePresence>
       {selectedTemplate && (
-        <div className="mt-4 text-sm text-gray-300 bg-blue-900 p-4 rounded border border-blue-700">
-          <p><strong>Title:</strong> {selectedTemplate.title}</p>
-          <p><strong>Categories:</strong> {categories.join(", ") || selectedTemplate.categories.length}</p>
-          <p><strong>Questions:</strong> {selectedTemplate.questions.length}</p>
-          <p><strong>Board Size:</strong> {categories.length}x{values.length}</p>
-        </div>
+        <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-6 text-sm bg-background/50 p-6 rounded-xl border border-border/50 grid grid-cols-2 md:grid-cols-4 gap-4"
+        >
+          <div>
+              <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider mb-1">Title</p>
+              <p className="font-semibold text-lg truncate" title={selectedTemplate.title}>{selectedTemplate.title}</p>
+          </div>
+          <div>
+              <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider mb-1">Categories</p>
+              <p className="font-semibold text-lg">{selectedTemplate.categories.length}</p>
+          </div>
+          <div>
+              <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider mb-1">Questions</p>
+              <p className="font-semibold text-lg">{selectedTemplate.questions.length}</p>
+          </div>
+          <div>
+              <p className="text-muted-foreground uppercase text-xs font-bold tracking-wider mb-1">Board Size</p>
+              <p className="font-semibold text-lg">{categories.length}x{values.length}</p>
+          </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       <Button
         onClick={startGame}
         disabled={!selectedTemplate || starting || selectedTeams.length === 0}
-        className="mt-6 bg-yellow-400 text-black hover:bg-yellow-500 px-8 py-4 rounded font-bold w-full text-lg"
+        variant="jeopardy"
+        className="mt-8 w-full md:w-auto md:min-w-[200px] h-14 text-lg"
       >
         {starting ? "Starting Game..." : "Start Game"}
       </Button>
-      {error && <p className="mt-2 text-sm text-red-500 font-bold">{error}</p>}
-    </div>
+
+      <AnimatePresence>
+      {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-4 text-sm text-destructive font-bold bg-destructive/10 p-3 rounded-lg border border-destructive/20 inline-block"
+          >
+              {error}
+          </motion.p>
+      )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

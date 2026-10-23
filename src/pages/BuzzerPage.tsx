@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 
 export default function BuzzerPage() {
@@ -72,6 +73,11 @@ export default function BuzzerPage() {
     setHasBuzzedLocally(true);
     const buzzTime = Date.now();
 
+    // Attempt to trigger native vibration
+    if (navigator.vibrate) {
+        navigator.vibrate(100);
+    }
+
     try {
         // Fetch latest game state to avoid race conditions with other players as much as possible
         const latestGame = await pb.collection("games").getOne(game.id);
@@ -92,22 +98,27 @@ export default function BuzzerPage() {
     }
   };
 
-  if (!game) return <div className="min-h-screen bg-blue-950 flex items-center justify-center text-white text-xl">Loading...</div>;
+  if (!game) return <div className="min-h-screen bg-background flex items-center justify-center text-foreground text-xl">Loading...</div>;
 
   if (!selectedTeamId) {
     return (
-      <div className="min-h-screen bg-blue-950 flex flex-col items-center p-8 text-white">
-        <h1 className="text-3xl font-bold mb-8 text-yellow-400">Join a Team</h1>
+      <div className="min-h-screen bg-background bg-animated-gradient flex flex-col items-center p-8 text-foreground">
+        <h1 className="text-3xl font-bold mb-8 text-accent drop-shadow-md">Join a Team</h1>
         <div className="w-full max-w-md flex flex-col gap-4">
-          {teams.map((t) => (
-            <button
+          <AnimatePresence>
+          {teams.map((t, idx) => (
+            <motion.button
               key={t.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
               onClick={() => selectTeam(t.id)}
-              className="bg-blue-800 hover:bg-blue-700 text-xl font-bold py-6 px-4 rounded border-2 border-blue-500 transition-colors"
+              className="bg-primary/90 hover:bg-primary text-xl font-bold py-6 px-4 rounded-xl border-2 border-primary-foreground/20 backdrop-blur-sm transition-all shadow-lg hover:scale-105 active:scale-95"
             >
               {t.name}
-            </button>
+            </motion.button>
           ))}
+          </AnimatePresence>
         </div>
       </div>
     );
@@ -129,15 +140,15 @@ export default function BuzzerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-950 flex flex-col p-4 text-white">
-      <div className="flex justify-between items-center mb-8">
-        <div className="text-lg font-bold">Team: <span className="text-yellow-400">{selectedTeamName}</span></div>
+    <div className="min-h-screen bg-background bg-animated-gradient flex flex-col p-4 md:p-8 text-foreground">
+      <div className="flex justify-between items-center mb-8 bg-card/40 backdrop-blur-md p-4 rounded-2xl border border-border/50 shadow-md">
+        <div className="text-lg md:text-xl font-bold">Team: <span className="text-accent drop-shadow-sm">{selectedTeamName}</span></div>
         <button
           onClick={() => {
             setSelectedTeamId(null);
             localStorage.removeItem(`jeopardy-buzzer-team-${uniqueID}`);
           }}
-          className="text-sm bg-gray-700 px-3 py-1 rounded hover:bg-gray-600"
+          className="text-sm bg-secondary/80 px-4 py-2 rounded-lg hover:bg-secondary font-semibold transition-colors"
         >
           Change Team
         </button>
@@ -145,29 +156,58 @@ export default function BuzzerPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center">
         {/* Buzzer Button */}
-        <button
+        <motion.button
           onClick={handleBuzz}
           disabled={buzzerState !== "unlocked"}
-          className={`
-            w-64 h-64 rounded-full text-4xl font-bold uppercase tracking-wider shadow-2xl transition-all duration-100
-            ${buzzerState === "unlocked"
-                ? "bg-red-600 hover:bg-red-500 active:scale-95 shadow-red-600/50 cursor-pointer border-8 border-red-800"
+          animate={
+              buzzerState === "unlocked"
+                ? { scale: [1, 1.05, 1], boxShadow: ["0px 0px 20px rgba(var(--destructive), 0.4)", "0px 0px 60px rgba(var(--destructive), 0.8)", "0px 0px 20px rgba(var(--destructive), 0.4)"] }
                 : buzzerState === "buzzed"
-                ? "bg-green-500 shadow-green-500/50 border-8 border-green-700 scale-105 cursor-default"
-                : "bg-gray-600 text-gray-400 border-8 border-gray-800 opacity-50 cursor-not-allowed"}
+                ? { scale: 1.1, rotate: [0, -5, 5, -5, 0], transition: { duration: 0.5 } }
+                : { scale: 1 }
+          }
+          transition={buzzerState === "unlocked" ? { repeat: Infinity, duration: 2 } : {}}
+          whileTap={buzzerState === "unlocked" ? { scale: 0.9, y: 10 } : {}}
+          className={`
+            w-64 h-64 md:w-80 md:h-80 rounded-full text-4xl md:text-5xl font-bold uppercase tracking-wider transition-all duration-200 shadow-2xl relative
+            ${buzzerState === "unlocked"
+                ? "bg-destructive text-destructive-foreground hover:brightness-110 cursor-pointer border-8 border-background/20"
+                : buzzerState === "buzzed"
+                ? "bg-green-500 text-white shadow-green-500/50 border-8 border-green-700 cursor-default"
+                : "bg-muted text-muted-foreground border-8 border-background/10 cursor-not-allowed opacity-80"}
           `}
         >
+          <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+
           {buzzerState === "unlocked" && "BUZZ"}
           {buzzerState === "buzzed" && "BUZZED!"}
           {buzzerState === "locked" && "LOCKED"}
           {buzzerState === "too-late" && "LOCKED"}
-        </button>
+        </motion.button>
 
-        <div className="mt-12 text-center h-16">
-           {buzzerState === "unlocked" && <p className="text-xl font-bold text-yellow-400 animate-pulse">Go!</p>}
-           {buzzerState === "locked" && <p className="text-xl text-gray-400">Waiting for host...</p>}
-           {buzzerState === "buzzed" && <p className="text-xl text-green-400 font-bold">You are in the queue!</p>}
-           {buzzerState === "too-late" && <p className="text-xl text-gray-400">Someone else buzzed in.</p>}
+        <div className="mt-16 text-center h-20 flex items-center justify-center">
+           <AnimatePresence mode="wait">
+               {buzzerState === "unlocked" && (
+                   <motion.p key="unlocked" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-2xl font-bold text-accent drop-shadow-lg">
+                       Ready! Tap to Buzz.
+                   </motion.p>
+               )}
+               {buzzerState === "locked" && (
+                   <motion.p key="locked" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xl text-muted-foreground">
+                       Waiting for host...
+                   </motion.p>
+               )}
+               {buzzerState === "buzzed" && (
+                   <motion.p key="buzzed" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="text-2xl text-green-400 font-bold drop-shadow-md">
+                       You are in the queue!
+                   </motion.p>
+               )}
+               {buzzerState === "too-late" && (
+                   <motion.p key="too-late" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xl text-muted-foreground">
+                       Someone else buzzed in.
+                   </motion.p>
+               )}
+           </AnimatePresence>
         </div>
       </div>
     </div>
