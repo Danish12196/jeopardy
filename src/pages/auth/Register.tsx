@@ -39,17 +39,19 @@ export default function Register() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full bg-card/60 backdrop-blur-md p-8 rounded-2xl border border-border/50 shadow-2xl"
+        className="max-w-md w-full bg-card/80 backdrop-blur-xl p-8 rounded-2xl border border-border/50 shadow-2xl relative overflow-hidden"
       >
-        <h1 className="text-4xl font-bold mb-8 text-accent text-center drop-shadow-md">Sign Up</h1>
-        <form onSubmit={handleRegister} className="flex flex-col gap-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
+
+        <h1 className="text-4xl font-bold mb-8 text-accent text-center drop-shadow-md uppercase tracking-wider relative z-10">Sign Up</h1>
+        <form onSubmit={handleRegister} className="flex flex-col gap-6 relative z-10">
           <div className="space-y-4">
               <Input
                 type="text"
                 placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="h-12 bg-background/50 border-border/50 focus:border-accent"
+                className="h-12 bg-background/80 border-border/50 focus:border-accent text-foreground"
                 required
               />
               <Input
@@ -57,7 +59,7 @@ export default function Register() {
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12 bg-background/50 border-border/50 focus:border-accent"
+                className="h-12 bg-background/80 border-border/50 focus:border-accent text-foreground"
                 required
               />
               <Input
@@ -65,7 +67,7 @@ export default function Register() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 bg-background/50 border-border/50 focus:border-accent"
+                className="h-12 bg-background/80 border-border/50 focus:border-accent text-foreground"
                 required
               />
               <Input
@@ -73,7 +75,7 @@ export default function Register() {
                 placeholder="Confirm Password"
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
-                className="h-12 bg-background/50 border-border/50 focus:border-accent"
+                className="h-12 bg-background/80 border-border/50 focus:border-accent text-foreground"
                 required
               />
           </div>
@@ -95,9 +97,9 @@ export default function Register() {
             Create Account
           </Button>
         </form>
-        <div className="mt-8 text-center text-sm text-muted-foreground">
+        <div className="mt-8 text-center text-sm text-muted-foreground relative z-10">
           Already have an account?{" "}
-          <Link to="/login" className="text-accent font-bold hover:underline transition-all">
+          <Link to="/login" className="text-accent font-bold hover:underline transition-all hover:text-yellow-300">
             Login
           </Link>
         </div>
