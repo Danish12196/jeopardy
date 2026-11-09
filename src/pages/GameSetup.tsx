@@ -18,8 +18,10 @@ export default function GameSetup() {
     const fetchTeams = async () => {
       try {
         if (!pb.authStore.isValid) return;
+        // The teams list rule already limits results to the signed-in user's
+        // teams. Filtering on `user` here returns 400, because the field is
+        // hidden and PocketBase only lets superusers filter on hidden fields.
         const records = await pb.collection("teams").getFullList({
-          filter: `user = "${pb.authStore.model?.id}"`,
           sort: "-created"
         });
         setAvailableTeams(records);

@@ -39,6 +39,15 @@ const AUTHOR_RULES = {
   deleteRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
 };
 
+// Teams: you only list your own (the setup page relies on this, since it can't
+// filter on the hidden `user` field), but anyone can view one by id so the TV
+// board and phone buzzers can show team names.
+const TEAM_RULES = {
+  ...AUTHOR_RULES,
+  listRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
+  viewRule: "",
+};
+
 // Guests on the buzzer page may only add themselves to buzzerQueue, and only
 // while the host has the buzzers unlocked. Every other field needs a login.
 const HOST_ONLY_GAME_FIELDS = [
@@ -90,7 +99,7 @@ const COLLECTIONS = [
   },
   {
     name: "teams",
-    rules: AUTHOR_RULES,
+    rules: TEAM_RULES,
     fields: [
       { name: "name", type: "text", required: true },
       relation("user", "users", { single: true, required: true }),
