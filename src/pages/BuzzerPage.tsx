@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
+import { useGameSubscription } from "@/hooks/useGameSubscription";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { buzzPosition } from "@/lib/buzzes";
 import PhoneAllIn from "@/components/phone/PhoneAllIn";
+import { useLiveConnection } from "@/hooks/useLiveConnection";
+import ReconnectingBadge from "@/components/ReconnectingBadge";
+
 
 // Storage key for the team a phone picked. Older builds (before the Lockout
 // rebrand) used the "jeopardy-" prefix, so we read that once and migrate it.
@@ -36,8 +40,9 @@ export default function BuzzerPage() {
   const [pendingRound, setPendingRound] = useState<number | null>(null);
   const [rejectedRound, setRejectedRound] = useState<number | null>(null);
 
+  const { connected, reloadKey } = useLiveConnection();
   const round = game?.buzzRound ?? 0;
-  const buzzQueue = useBuzzes(game?.id, round);
+  const buzzQueue = useBuzzes(game?.id, round, reloadKey);
 
   useEffect(() => {
     // Attempt to restore team selection from local storage
@@ -66,20 +71,8 @@ export default function BuzzerPage() {
     fetchGame();
   }, [uniqueID]);
 
-  useEffect(() => {
-    if (!game?.id) return;
-
-    const sub = async () => {
-      await pb.collection("games").subscribe(game.id, (event) => {
-        setGame(event.record);
-      });
-    };
-    sub();
-
-    return () => {
-      pb.collection("games").unsubscribe(game.id);
-    };
-  }, [game?.id]);
+  // Live updates, plus a refetch after any reconnect.
+  useGameSubscription(game?.id, reloadKey, setGame);
 
   const selectTeam = (teamId: string) => {
     setSelectedTeamId(teamId);
@@ -151,6 +144,7 @@ export default function BuzzerPage() {
 
   return (
     <div className="min-h-screen bg-background bg-animated-gradient flex flex-col p-4 md:p-8 text-foreground">
+      <ReconnectingBadge show={!connected} />
       <div className="flex justify-between items-center mb-8 bg-card/40 backdrop-blur-md p-4 rounded-2xl border border-border/50 shadow-md">
         <div className="text-lg md:text-xl font-bold">Team: <span className="text-accent drop-shadow-sm">{selectedTeamName}</span></div>
         <button
@@ -163,7 +157,7 @@ export default function BuzzerPage() {
           }}
           className="text-sm bg-secondary/80 px-4 py-2 rounded-lg hover:bg-secondary font-semibold transition-colors"
         >
-          Change Team
+          Switch team
         </button>
       </div>
 

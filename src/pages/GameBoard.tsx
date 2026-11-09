@@ -3,12 +3,16 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
+import { useGameSubscription } from "@/hooks/useGameSubscription";
 import useSound from "use-sound";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { buzzGap } from "@/lib/buzzes";
 import { useWagers } from "@/hooks/useWagers";
 import AllInScreen from "@/components/tv/AllInScreen";
 import GameOverScreen from "@/components/tv/GameOverScreen";
+import { useLiveConnection } from "@/hooks/useLiveConnection";
+import ReconnectingBadge from "@/components/ReconnectingBadge";
+
 
 // You can replace this with a valid sound URL if you prefer.
 // A simple beep data URI for the buzzer sound.
@@ -33,12 +37,13 @@ export default function GameBoard() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
   const [buzzRound, setBuzzRound] = useState(0);
+  const { connected, reloadKey } = useLiveConnection();
   // The latest game record, for Wildcard, All In and game over.
   const [live, setLive] = useState<any>(null);
   const allInPhase: string = live?.allInPhase || "";
-  const wagers = useWagers(gameId ?? undefined, allInPhase === "reveal" || allInPhase === "done", allInPhase);
+  const wagers = useWagers(gameId ?? undefined, allInPhase === "reveal" || allInPhase === "done", `${allInPhase}-${reloadKey}`);
   const wildcard = live?.wildcard && live.wildcard.question === live.currentActiveQuestion ? live.wildcard : null;
-  const buzzerQueue = useBuzzes(gameId ?? undefined, buzzRound);
+  const buzzerQueue = useBuzzes(gameId ?? undefined, buzzRound, reloadKey);
   const [hostForceShowQuestion, setHostForceShowQuestion] = useState(false);
 
   // Use a generic pop sound for revealing questions/answers (fallback to native browser handling if needed)
@@ -117,10 +122,9 @@ export default function GameBoard() {
     fetchGame();
   }, [uniqueID]);
 
-  useEffect(() => {
-    if (!gameId) return;
-
-    const apply = (g: any) => {
+  // Live updates, plus a refetch after any reconnect. Starts once the
+  // questions are loaded (gameId is set last).
+  useGameSubscription(gameId, reloadKey, (g: any) => {
 
         setUsedQuestions(g.answeredQuestions || []);
         setLive(g);
@@ -146,19 +150,7 @@ export default function GameBoard() {
         } else {
           setActiveQuestion(null);
         }
-    };
-
-    const sub = async () => {
-      await pb.collection("games").subscribe(gameId, (event) => apply(event.record));
-      // Catch anything that changed between the first load and the subscription.
-      apply(await pb.collection("games").getOne(gameId));
-    };
-
-    sub().catch((err) => console.error("Board subscribe error:", err));
-    return () => {
-      pb.collection("games").unsubscribe(gameId);
-    };
-  }, [gameId]);
+  });
 
   // Play a sound when someone new buzzes in.
   useEffect(() => {
@@ -170,6 +162,7 @@ export default function GameBoard() {
 
   return (
     <div className="min-h-screen flex flex-col p-4 md:p-8 overflow-hidden bg-background bg-animated-gradient">
+      <ReconnectingBadge show={!connected} />
       {/* Scoreboard at Top */}
       <div className="flex justify-center gap-4 md:gap-8 mb-6 md:mb-8 flex-wrap">
         <AnimatePresence>

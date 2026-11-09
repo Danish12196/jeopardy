@@ -3,12 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import pb from "@/pb";
+import { useGameSubscription } from "@/hooks/useGameSubscription";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { buzzGap, buzzPosition } from "@/lib/buzzes";
 import { Input } from "@/components/ui/input";
 import WildcardPanel from "@/components/host/WildcardPanel";
 import AllInPanel, { type AllInState } from "@/components/host/AllInPanel";
 import { useWagers } from "@/hooks/useWagers";
+import { useLiveConnection } from "@/hooks/useLiveConnection";
+import ReconnectingBadge from "@/components/ReconnectingBadge";
+
 import { allInMaxWager, applyDelta, clampWager, pushHistory, revealOrder, scoreOf, type TeamScore } from "@/lib/scoring";
 
 export default function GameHost() {
@@ -31,15 +35,16 @@ export default function GameHost() {
   const [showAnswerLocal, setShowAnswerLocal] = useState(false);
   const [autoUnlock, setAutoUnlock] = useState(true);
 
+  const { connected, reloadKey } = useLiveConnection();
   // Server-ordered buzzes for the current round.
-  const buzzQueue = useBuzzes(game?.id, game?.buzzRound ?? 0);
+  const buzzQueue = useBuzzes(game?.id, game?.buzzRound ?? 0, reloadKey);
 
   const [markingWildcards, setMarkingWildcards] = useState(false);
   const [allInOpen, setAllInOpen] = useState(false);
   const [adjust, setAdjust] = useState<Record<string, string>>({});
   const allInPhase: string = game?.allInPhase || "";
   const allIn: AllInState = game?.allIn || {};
-  const wagers = useWagers(game?.id, !!allInPhase, allInPhase);
+  const wagers = useWagers(game?.id, !!allInPhase, `${allInPhase}-${reloadKey}`);
   const scores: TeamScore[] = game?.teamScores || [];
   const wildcards: string[] = game?.wildcards || [];
 
@@ -129,29 +134,17 @@ export default function GameHost() {
     fetchGame();
   }, [uniqueID, navigate]);
 
-  useEffect(() => {
-    if (!game?.id) return;
-
-    const sub = async () => {
-      await pb.collection("games").subscribe(game.id, (event) => {
-        const updatedGame = event.record;
-        setGame(updatedGame);
-        setUsedQuestions(updatedGame.answeredQuestions || []);
-
-        setTeams((prevTeams) =>
-          prevTeams.map((t) => ({
-            ...t,
-            score: updatedGame.teamScores?.find((ts: any) => ts.id === t.id)?.score ?? t.score,
-          }))
-        );
-      });
-    };
-    sub();
-
-    return () => {
-      pb.collection("games").unsubscribe(game.id);
-    };
-  }, [game?.id]);
+  // Live updates, plus a refetch after any reconnect.
+  useGameSubscription(game?.id, reloadKey, (updatedGame: any) => {
+    setGame(updatedGame);
+    setUsedQuestions(updatedGame.answeredQuestions || []);
+    setTeams((prevTeams) =>
+      prevTeams.map((t) => ({
+        ...t,
+        score: updatedGame.teamScores?.find((ts: any) => ts.id === t.id)?.score ?? t.score,
+      }))
+    );
+  });
 
   /** Saves a change to the game and uses the server's copy straight away. */
   const updateGame = async (patch: Record<string, unknown>) => {
@@ -309,6 +302,7 @@ export default function GameHost() {
 
   return (
     <div className="min-h-screen bg-background bg-animated-gradient text-foreground p-4 md:p-8">
+      <ReconnectingBadge show={!connected} />
       <div className="flex justify-between items-center mb-6 bg-card/60 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-md">
         <h1 className="text-2xl md:text-3xl font-bold text-accent drop-shadow-sm">Host Dashboard</h1>
         <div className="text-lg md:text-xl font-semibold">Game Code: <span className="font-mono text-accent bg-black/40 px-3 py-1.5 rounded-lg border border-border/40 tracking-wider shadow-inner">{uniqueID}</span></div>

@@ -52,6 +52,7 @@ test("four teams buzzing within ~50 ms all land, in the same order everywhere", 
   // A reload gives the same order (it's stable, not arrival order on this client).
   await host.reload();
   await expect(queue).toHaveCount(4);
+  await expect(queue.first()).toContainText(expected[0]); // team names loaded
   expect((await queue.allInnerTexts()).map((s) => s.replace(/\s*\(.*\)$/, "").trim())).toEqual(expected);
 
   await Promise.all([tv.ctx.close(), ...phones.map((p) => p.ctx.close())]);

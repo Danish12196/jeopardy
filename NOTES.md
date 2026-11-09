@@ -86,6 +86,24 @@ All five done. Names follow the Lockout brand: **Wildcard** and **All In**.
    (any time) sets `games.gameOver`; the TV shows final standings and phones
    show their place.
 
+### Phase 6: reconnecting
+- One shared watcher (`src/hooks/useLiveConnection.ts`) listens for the
+  realtime connection dropping and coming back (`PB_CONNECT`), the browser
+  going offline/online, and the tab becoming visible again (phone screens
+  waking, TV inputs switching). Phones, TV and host show a small
+  "Reconnecting…" badge while the connection is down, and refetch the
+  game, buzz queue and wagers whenever it comes back.
+- Game subscriptions moved into `useGameSubscription`, which uses the
+  listener-specific unsubscribe. The old `unsubscribe(topic)` call removed
+  every listener on the topic and could race a fresh subscription.
+- A phone that reloads keeps its team (localStorage, already there); the
+  button that changes team is now labelled "Switch team".
+- E2E: a phone goes offline mid-question while another team buzzes and the
+  host locks; when it's back the badge goes and it shows "Someone else got
+  in first", then works on the next open. Note: Playwright's offline mode
+  doesn't cut an already-open event stream, so the test proves the badge
+  and recovery rather than a truly missed event.
+
 ## Open questions
 - Production's PocketBase version isn't known here. Tests use v0.29.3; the
   rules only use features from v0.23+ (`:isset`, `?=`, `buzzRound+`
