@@ -49,6 +49,20 @@ Superusers bypass every rule in PocketBase, so rules no longer mention them.
   `e2e/upgrade.spec.ts` (old init-db, then new one: data kept, host
   backfilled, dry run changes nothing, second run is a no-op).
 
+### Phase 4: boards in and out
+- Setup page has an **Import / Export** tab. Export any template you can see
+  as CSV (`category,value,question,answer,hint`) or JSON. Import a CSV or
+  JSON file, see a preview table and a list of problems (missing answer or
+  question, duplicate value in a category, wrong column count, bad header or
+  value) before saving. Saving creates new categories, questions and a
+  template owned by you.
+- `samples/board.csv` and `samples/board.json`: one full 6x5 board.
+- Unit tests for the parser (`src/lib/boardFile.test.ts`), E2E for importing
+  the sample, exporting it again, and playing a question from it.
+- Fixed a TV race: the board subscribed before its questions loaded, so a
+  question opened in the first moments didn't show. It now subscribes after
+  loading and refetches once subscribed.
+
 ## Open questions
 - Production's PocketBase version isn't known here. Tests use v0.29.3; the
   rules only use features from v0.23+ (`:isset`, `?=`, `buzzRound+`
@@ -61,4 +75,8 @@ Superusers bypass every rule in PocketBase, so rules no longer mention them.
   login). Same as before; not changed.
 - A private template's questions can't be loaded by a logged-out TV. That
   was already the case; opening the TV in the host's logged-in browser
-  works. Not changed, because opening it up would leak answers.
+  works. Not changed, because opening it up would leak answers. The import
+  E2E test ticks "Make Public" for this reason. If you'd rather private
+  boards work on a logged-out TV, the questions/categories/templates view
+  rule can allow records used by a game, at the cost of answers being
+  readable by anyone who knows the game exists.

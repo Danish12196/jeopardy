@@ -48,7 +48,7 @@ PB_URL=https://pb.danishali.dev PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD='..
 
 Re-running is safe; it only adds what's missing. Add `--sync-rules` to reset access rules on existing collections.
 
-Game templates are created in the PocketBase admin UI for now (pick categories and questions).
+Templates are made in the app: on the setup page, add categories and questions and save them as a template, or import a whole board from CSV or JSON under **Import / Export** (see `samples/board.csv` and `samples/board.json`).
 
 ## Contribution
 

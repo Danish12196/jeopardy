@@ -1,0 +1,215 @@
+{
+  "title": "Sample board",
+  "categories": [
+    {
+      "name": "Space",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What is the closest star to Earth?",
+          "answer": "The Sun",
+          "hint": "You see it every day"
+        },
+        {
+          "value": 200,
+          "question": "Which planet has the most famous rings?",
+          "answer": "Saturn",
+          "hint": "Sixth from the Sun"
+        },
+        {
+          "value": 300,
+          "question": "What do we call a rock from space that reaches the ground?",
+          "answer": "A meteorite",
+          "hint": "It survived the trip down"
+        },
+        {
+          "value": 400,
+          "question": "Who was the first person to walk on the Moon?",
+          "answer": "Neil Armstrong",
+          "hint": "July 1969"
+        },
+        {
+          "value": 500,
+          "question": "What is the name of the galaxy we live in?",
+          "answer": "The Milky Way",
+          "hint": "Shares a name with a chocolate bar"
+        }
+      ]
+    },
+    {
+      "name": "Food",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What fruit is dried to make raisins?",
+          "answer": "Grapes",
+          "hint": "Grows in bunches"
+        },
+        {
+          "value": 200,
+          "question": "Which country is the home of the dish paella?",
+          "answer": "Spain",
+          "hint": "Valencia"
+        },
+        {
+          "value": 300,
+          "question": "What is the main ingredient in guacamole?",
+          "answer": "Avocado",
+          "hint": "Green and creamy"
+        },
+        {
+          "value": 400,
+          "question": "Which nut is used to make marzipan?",
+          "answer": "Almond",
+          "hint": "Also a milk alternative"
+        },
+        {
+          "value": 500,
+          "question": "What spice gives paella and biryani a yellow colour?",
+          "answer": "Saffron",
+          "hint": "The world's priciest spice"
+        }
+      ]
+    },
+    {
+      "name": "Sport",
+      "questions": [
+        {
+          "value": 100,
+          "question": "How many players does a football (soccer) team have on the pitch?",
+          "answer": "Eleven",
+          "hint": "More than ten"
+        },
+        {
+          "value": 200,
+          "question": "In which sport do you hit a shuttlecock?",
+          "answer": "Badminton",
+          "hint": "Played with a racket over a net"
+        },
+        {
+          "value": 300,
+          "question": "How many rings are on the Olympic flag?",
+          "answer": "Five",
+          "hint": "One per inhabited continent group"
+        },
+        {
+          "value": 400,
+          "question": "In tennis what is a score of zero called?",
+          "answer": "Love",
+          "hint": "A romantic word"
+        },
+        {
+          "value": 500,
+          "question": "Which country has won the most FIFA World Cups?",
+          "answer": "Brazil",
+          "hint": "Five titles"
+        }
+      ]
+    },
+    {
+      "name": "Words",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What is the opposite of 'ancient'?",
+          "answer": "Modern",
+          "hint": "New"
+        },
+        {
+          "value": 200,
+          "question": "How many letters are in the English alphabet?",
+          "answer": "26",
+          "hint": "Two dozen and two"
+        },
+        {
+          "value": 300,
+          "question": "What word means a word with the same meaning as another?",
+          "answer": "Synonym",
+          "hint": "Not antonym"
+        },
+        {
+          "value": 400,
+          "question": "Which punctuation mark ends a question?",
+          "answer": "A question mark",
+          "hint": "?"
+        },
+        {
+          "value": 500,
+          "question": "What is a word that reads the same backwards called?",
+          "answer": "A palindrome",
+          "hint": "Like 'level'"
+        }
+      ]
+    },
+    {
+      "name": "Animals",
+      "questions": [
+        {
+          "value": 100,
+          "question": "What is the largest animal on Earth?",
+          "answer": "The blue whale",
+          "hint": "Lives in the ocean"
+        },
+        {
+          "value": 200,
+          "question": "How many legs does a spider have?",
+          "answer": "Eight",
+          "hint": "More than an insect"
+        },
+        {
+          "value": 300,
+          "question": "What is a group of lions called?",
+          "answer": "A pride",
+          "hint": "Also a feeling"
+        },
+        {
+          "value": 400,
+          "question": "Which bird is known for copying human speech?",
+          "answer": "The parrot",
+          "hint": "Often colourful"
+        },
+        {
+          "value": 500,
+          "question": "What is the only mammal that can truly fly?",
+          "answer": "The bat",
+          "hint": "Sleeps upside down"
+        }
+      ]
+    },
+    {
+      "name": "Music",
+      "questions": [
+        {
+          "value": 100,
+          "question": "How many strings does a standard guitar have?",
+          "answer": "Six",
+          "hint": "Half a dozen"
+        },
+        {
+          "value": 200,
+          "question": "Which instrument has 88 keys?",
+          "answer": "The piano",
+          "hint": "Black and white"
+        },
+        {
+          "value": 300,
+          "question": "What do we call a group of four musicians?",
+          "answer": "A quartet",
+          "hint": "Comes after trio"
+        },
+        {
+          "value": 400,
+          "question": "What is the highest female singing voice?",
+          "answer": "Soprano",
+          "hint": "Above alto"
+        },
+        {
+          "value": 500,
+          "question": "Which composer wrote the Moonlight Sonata?",
+          "answer": "Beethoven",
+          "hint": "He lost his hearing"
+        }
+      ]
+    }
+  ]
+}

@@ -45,7 +45,6 @@ export default function GameBoard() {
         });
         if (gameList.length === 0) return;
         const g = gameList[0];
-        setGameId(g.id);
 
         const template = await pb.collection("game_templates").getOne(g.template);
         const categoryRecords = await Promise.all(
@@ -97,6 +96,9 @@ export default function GameBoard() {
         setHostForceShowQuestion(g.hostForceShowQuestion || false);
 
         setBuzzRound(g.buzzRound ?? 0);
+        // Subscribe only once the questions are loaded, so the first live
+        // update can find the active question.
+        setGameId(g.id);
 
       } catch (err) {
         console.error("Board fetch error:", err);
@@ -109,9 +111,7 @@ export default function GameBoard() {
   useEffect(() => {
     if (!gameId) return;
 
-    const sub = async () => {
-      await pb.collection("games").subscribe(gameId, (event) => {
-        const g = event.record;
+    const apply = (g: any) => {
 
         setUsedQuestions(g.answeredQuestions || []);
         setShowAnswer(g.showAnswer || false);
@@ -136,10 +136,15 @@ export default function GameBoard() {
         } else {
           setActiveQuestion(null);
         }
-      });
     };
 
-    sub();
+    const sub = async () => {
+      await pb.collection("games").subscribe(gameId, (event) => apply(event.record));
+      // Catch anything that changed between the first load and the subscription.
+      apply(await pb.collection("games").getOne(gameId));
+    };
+
+    sub().catch((err) => console.error("Board subscribe error:", err));
     return () => {
       pb.collection("games").unsubscribe(gameId);
     };
