@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import pb from "@/pb";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { buzzGap, buzzPosition } from "@/lib/buzzes";
+import { Input } from "@/components/ui/input";
+import WildcardPanel from "@/components/host/WildcardPanel";
+import AllInPanel, { type AllInState } from "@/components/host/AllInPanel";
+import { useWagers } from "@/hooks/useWagers";
+import { allInMaxWager, applyDelta, clampWager, pushHistory, revealOrder, scoreOf, type TeamScore } from "@/lib/scoring";
 
 export default function GameHost() {
   const { uniqueID } = useParams();
@@ -29,10 +34,20 @@ export default function GameHost() {
   // Server-ordered buzzes for the current round.
   const buzzQueue = useBuzzes(game?.id, game?.buzzRound ?? 0);
 
+  const [markingWildcards, setMarkingWildcards] = useState(false);
+  const [allInOpen, setAllInOpen] = useState(false);
+  const [adjust, setAdjust] = useState<Record<string, string>>({});
+  const allInPhase: string = game?.allInPhase || "";
+  const allIn: AllInState = game?.allIn || {};
+  const wagers = useWagers(game?.id, !!allInPhase, allInPhase);
+  const scores: TeamScore[] = game?.teamScores || [];
+  const wildcards: string[] = game?.wildcards || [];
+
   // Layout calculations
   const cols = Math.max(categories.length, 1);
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
   const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
+  const topValue = values[values.length - 1] || 0;
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -138,31 +153,102 @@ export default function GameHost() {
     };
   }, [game?.id]);
 
+  /** Saves a change to the game and uses the server's copy straight away. */
+  const updateGame = async (patch: Record<string, unknown>) => {
+    if (!game?.id) return;
+    const rec = await pb.collection("games").update(game.id, patch);
+    setGame(rec);
+    return rec;
+  };
+
+  /** Writes new scores and remembers the old ones for Undo. */
+  const changeScores = (next: TeamScore[], extra: Record<string, unknown> = {}) =>
+    updateGame({ teamScores: next, scoreHistory: pushHistory(game?.scoreHistory, scores), ...extra });
+
+  const undoScore = async () => {
+    const history: TeamScore[][] = game?.scoreHistory || [];
+    if (!history.length) return;
+    await updateGame({ teamScores: history[history.length - 1], scoreHistory: history.slice(0, -1) });
+  };
+
+  const applyAdjust = async (teamId: string) => {
+    const delta = Number(adjust[teamId]);
+    if (!Number.isFinite(delta) || delta === 0) return;
+    await changeScores(applyDelta(scores, teamId, Math.round(delta)));
+    setAdjust((a) => ({ ...a, [teamId]: "" }));
+  };
+
+  const toggleWildcard = (questionId: string) =>
+    updateGame({ wildcards: wildcards.includes(questionId) ? wildcards.filter((w) => w !== questionId) : [...wildcards, questionId] });
+
   const selectQuestion = async (row: number, col: number, value: number, questionData: any) => {
+    if (markingWildcards) {
+      await toggleWildcard(questionData.id);
+      return;
+    }
     setSelectedTile({ row, col, value, questionData });
     setShowAnswerLocal(false);
+    const isWildcard = wildcards.includes(questionData.id);
 
     if (game?.id) {
-      await pb.collection("games").update(game.id, {
+      await updateGame({
         currentActiveQuestion: questionData.id,
         showAnswer: false,
-        buzzerUnlocked: autoUnlock,
+        // A Wildcard is played by one team, so the buzzers stay locked.
+        buzzerUnlocked: isWildcard ? false : autoUnlock,
         "buzzRound+": 1, // new round: earlier buzzes no longer count
-        hostForceShowQuestion: false
+        hostForceShowQuestion: false,
+        wildcard: isWildcard ? { question: questionData.id, team: "", wager: null, resolved: false } : null,
       });
     }
   };
 
+  const lockInWildcard = (team: string, wager: number) =>
+    updateGame({ wildcard: { ...game.wildcard, team, wager } });
+
+  const scoreWildcard = (correct: boolean) => {
+    const w = game.wildcard;
+    return changeScores(applyDelta(scores, w.team, correct ? w.wager : -w.wager), { wildcard: { ...w, resolved: true } });
+  };
+
+  // All In
+  const startAllIn = (a: { category: string; question: string; answer: string }) =>
+    updateGame({
+      allInPhase: "wager",
+      allIn: { ...a, results: {}, order: [], revealed: 0, applied: {} },
+      currentActiveQuestion: null,
+      buzzerUnlocked: false,
+      "buzzRound+": 1,
+      wildcard: null,
+    });
+  const markAllIn = (team: string, correct: boolean) =>
+    updateGame({ allIn: { ...allIn, results: { ...(allIn.results || {}), [team]: correct } } });
+  const startReveal = () =>
+    updateGame({ allInPhase: "reveal", allIn: { ...allIn, order: revealOrder(scores, teams.map((t) => t.id)), revealed: 0, applied: {} } });
+  const revealNext = async () => {
+    const order = allIn.order || [];
+    const revealed = allIn.revealed || 0;
+    const team = order[revealed];
+    if (!team) return;
+    const wager = clampWager(wagers[team] ?? 0, allInMaxWager(scoreOf(scores, team)));
+    const delta = allIn.results?.[team] ? wager : -wager;
+    await changeScores(applyDelta(scores, team, delta), {
+      allIn: { ...allIn, revealed: revealed + 1, applied: { ...(allIn.applied || {}), [team]: delta } },
+    });
+  };
+  const finishGame = () => updateGame({ allInPhase: allInPhase ? "done" : "", gameOver: true, currentActiveQuestion: null, buzzerUnlocked: false });
+
   const clearQuestion = async () => {
     if (selectedTile && game?.id) {
       const updatedUsed = [...new Set([...usedQuestions, selectedTile.questionData.id])];
-      await pb.collection("games").update(game.id, {
+      await updateGame({
         currentActiveQuestion: null,
         showAnswer: false,
         buzzerUnlocked: false,
         "buzzRound+": 1,
         answeredQuestions: updatedUsed,
-        hostForceShowQuestion: false
+        hostForceShowQuestion: false,
+        wildcard: null,
       });
     }
     setSelectedTile(null);
@@ -188,18 +274,7 @@ export default function GameHost() {
     }
   };
 
-  const updateTeamScore = async (teamId: string, value: number) => {
-    if (!game?.id) return;
-
-    const newTeams = teams.map((t) =>
-      t.id === teamId ? { ...t, score: t.score + value } : t
-    );
-
-    setTeams(newTeams);
-    await pb.collection("games").update(game.id, {
-      teamScores: newTeams.map((t) => ({ id: t.id, score: t.score })),
-    });
-  };
+  const updateTeamScore = (teamId: string, value: number) => changeScores(applyDelta(scores, teamId, value));
 
   const clearBuzzers = async () => {
     if (game?.id) {
@@ -242,8 +317,53 @@ export default function GameHost() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left Side: Game Board Controls */}
         <div className="w-full lg:w-1/2 flex flex-col min-h-[60vh]">
+          {!selectedTile && !allInOpen && !allInPhase && (
+            <div className="flex flex-wrap gap-3 mb-3">
+              <Button
+                variant={markingWildcards ? "brand" : "secondary"}
+                aria-pressed={markingWildcards}
+                onClick={() => setMarkingWildcards((m) => !m)}
+                className="font-bold"
+              >
+                {markingWildcards ? "Done marking Wildcards" : "Mark Wildcards"}
+              </Button>
+              <Button variant="secondary" className="font-bold" onClick={() => { setMarkingWildcards(false); setAllInOpen(true); }}>
+                All In
+              </Button>
+              <Button variant="outline" className="ml-auto" onClick={finishGame}>
+                End game
+              </Button>
+            </div>
+          )}
+          {markingWildcards && !selectedTile && (
+            <p className="text-sm text-accent mb-3 font-semibold">Tap tiles to mark or unmark them as Wildcards. Only you can see the marks.</p>
+          )}
           <AnimatePresence mode="wait">
-          {!selectedTile ? (
+          {(allInOpen || allInPhase) ? (
+            <motion.div
+              key="allin"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="bg-card/60 backdrop-blur-xl p-8 rounded-2xl border border-accent/50 shadow-2xl"
+            >
+              <h2 className="text-3xl font-bold mb-4 text-accent">All In</h2>
+              <AllInPanel
+                phase={allInPhase}
+                allIn={allIn}
+                teams={teams}
+                scores={scores}
+                wagers={wagers}
+                onStart={startAllIn}
+                onShowQuestion={() => updateGame({ allInPhase: "question" })}
+                onMark={markAllIn}
+                onStartReveal={startReveal}
+                onRevealNext={revealNext}
+                onFinish={finishGame}
+                onCancel={() => setAllInOpen(false)}
+              />
+            </motion.div>
+          ) : !selectedTile ? (
             <motion.div
                 key="grid"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -270,6 +390,7 @@ export default function GameHost() {
                 }
 
                 const isUsed = usedQuestions.includes(q.id);
+                const isWildcard = wildcards.includes(q.id);
 
                 return (
                   <motion.button
@@ -277,11 +398,17 @@ export default function GameHost() {
                     whileHover={!isUsed ? { scale: 1.05, zIndex: 10 } : {}}
                     whileTap={!isUsed ? { scale: 0.95 } : {}}
                     onClick={() => !isUsed && q && selectQuestion(row, col, value, q)}
-                    className={`flex items-center justify-center py-6 text-xl font-bold border border-border/50 transition-colors rounded-sm ${
+                    aria-label={`${value}${isWildcard ? " Wildcard" : ""}`}
+                    className={`relative flex items-center justify-center py-6 text-xl font-bold border transition-colors rounded-sm ${
+                      isWildcard && !isUsed ? "border-accent border-2" : "border-border/50"
+                    } ${
                       isUsed ? "bg-card/20 text-muted-foreground cursor-not-allowed" : "bg-tile text-accent hover:bg-accent hover:text-accent-foreground shadow-md cursor-pointer"
                     }`}
                   >
                     {value}
+                    {isWildcard && !isUsed && (
+                      <span className="absolute top-1 right-1 text-[10px] leading-none bg-accent text-accent-foreground px-1 py-0.5 rounded font-bold">W</span>
+                    )}
                   </motion.button>
                 );
               })}
@@ -306,6 +433,21 @@ export default function GameHost() {
                   <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">Answer</span>
                   {selectedTile.questionData.answer}
               </div>
+
+              {game.wildcard?.question === selectedTile.questionData.id && (
+                <>
+                  <p className="z-10 mb-2 text-sm uppercase tracking-wider font-bold text-accent">Wildcard</p>
+                  <WildcardPanel
+                    key={game.wildcard.question}
+                    wildcard={game.wildcard}
+                    teams={teams}
+                    scores={scores}
+                    topValue={topValue}
+                    onLockIn={lockInWildcard}
+                    onResult={scoreWildcard}
+                  />
+                </>
+              )}
 
               {!showAnswerLocal ? (
                   <div className="flex flex-col gap-3 mb-6 z-10">
@@ -418,7 +560,12 @@ export default function GameHost() {
             transition={{ delay: 0.1 }}
             className="bg-card/60 backdrop-blur-md p-6 rounded-2xl border border-border/50 shadow-lg flex-1 overflow-y-auto custom-scrollbar"
           >
-            <h3 className="text-2xl font-bold mb-6 flex items-center gap-2"><span className="text-accent">🏆</span> Teams & Scoring</h3>
+            <div className="flex justify-between items-center mb-6 gap-3">
+              <h3 className="text-2xl font-bold flex items-center gap-2"><span className="text-accent">🏆</span> Teams & Scoring</h3>
+              <Button variant="secondary" size="sm" onClick={undoScore} disabled={!(game.scoreHistory?.length > 0)}>
+                Undo last score change
+              </Button>
+            </div>
             <div className="flex flex-col gap-4">
               <AnimatePresence>
               {teams.map((team) => (
@@ -441,16 +588,33 @@ export default function GameHost() {
                       )}
                     </div>
                     <motion.div
-                        key={team.score}
+                        key={scoreOf(scores, team.id)}
                         initial={{ scale: 1.2, color: "var(--accent)" }}
                         animate={{ scale: 1, color: "var(--accent)" }}
                         className="text-accent font-mono text-2xl font-bold mt-1"
                         data-testid={`host-score-${team.name}`}
                     >
-                        {team.score}
+                        {scoreOf(scores, team.id)}
                     </motion.div>
                   </div>
-                  <div className="flex gap-3 shrink-0">
+                  <div className="flex gap-3 shrink-0 items-center">
+                    <form
+                      className="flex gap-1"
+                      onSubmit={(e) => { e.preventDefault(); applyAdjust(team.id); }}
+                    >
+                      <Input
+                        type="number"
+                        step={1}
+                        value={adjust[team.id] ?? ""}
+                        onChange={(e) => setAdjust((a) => ({ ...a, [team.id]: e.target.value }))}
+                        placeholder="±pts"
+                        aria-label={`Adjust ${team.name}'s score by`}
+                        className="w-20 h-10 bg-background"
+                      />
+                      <Button type="submit" size="sm" variant="secondary" className="h-10" aria-label={`Apply adjustment to ${team.name}`}>
+                        Apply
+                      </Button>
+                    </form>
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { buzzPosition } from "@/lib/buzzes";
+import PhoneAllIn from "@/components/phone/PhoneAllIn";
 
 // Storage key for the team a phone picked. Older builds (before the Lockout
 // rebrand) used the "jeopardy-" prefix, so we read that once and migrate it.
@@ -166,6 +167,9 @@ export default function BuzzerPage() {
         </button>
       </div>
 
+      {(game.allInPhase || game.gameOver) ? (
+        <PhoneAllIn key={`${game.id}-${selectedTeamId}`} game={game} teamId={selectedTeamId} teams={teams} />
+      ) : (
       <div className="flex-1 flex flex-col items-center justify-center">
         {/* Buzzer Button */}
         <motion.button
@@ -222,6 +226,7 @@ export default function BuzzerPage() {
            </AnimatePresence>
         </div>
       </div>
+      )}
     </div>
   );
 }

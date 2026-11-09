@@ -6,6 +6,9 @@ import pb from "@/pb";
 import useSound from "use-sound";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { buzzGap } from "@/lib/buzzes";
+import { useWagers } from "@/hooks/useWagers";
+import AllInScreen from "@/components/tv/AllInScreen";
+import GameOverScreen from "@/components/tv/GameOverScreen";
 
 // You can replace this with a valid sound URL if you prefer.
 // A simple beep data URI for the buzzer sound.
@@ -30,6 +33,11 @@ export default function GameBoard() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
   const [buzzRound, setBuzzRound] = useState(0);
+  // The latest game record, for Wildcard, All In and game over.
+  const [live, setLive] = useState<any>(null);
+  const allInPhase: string = live?.allInPhase || "";
+  const wagers = useWagers(gameId ?? undefined, allInPhase === "reveal" || allInPhase === "done", allInPhase);
+  const wildcard = live?.wildcard && live.wildcard.question === live.currentActiveQuestion ? live.wildcard : null;
   const buzzerQueue = useBuzzes(gameId ?? undefined, buzzRound);
   const [hostForceShowQuestion, setHostForceShowQuestion] = useState(false);
 
@@ -86,6 +94,7 @@ export default function GameBoard() {
 
         setTeams(mappedTeams);
         setUsedQuestions(g.answeredQuestions || []);
+        setLive(g);
 
         if (g.currentActiveQuestion) {
           const flatQs = grouped.flat();
@@ -114,6 +123,7 @@ export default function GameBoard() {
     const apply = (g: any) => {
 
         setUsedQuestions(g.answeredQuestions || []);
+        setLive(g);
         setShowAnswer(g.showAnswer || false);
         setHostForceShowQuestion(g.hostForceShowQuestion || false);
 
@@ -189,7 +199,11 @@ export default function GameBoard() {
       {/* Main Board Area */}
       <div className="flex-1 flex items-center justify-center w-full overflow-x-auto pb-4">
         <AnimatePresence mode="wait">
-        {!activeQuestion ? (
+        {live?.gameOver ? (
+          <GameOverScreen key="game-over" teams={teams} scores={live.teamScores || []} />
+        ) : allInPhase ? (
+          <AllInScreen key="allin" phase={allInPhase} allIn={live.allIn || {}} teams={teams} scores={live.teamScores || []} wagers={wagers} />
+        ) : !activeQuestion ? (
           <motion.div
             key="board"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -252,6 +266,18 @@ export default function GameBoard() {
             {/* Background decorative gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent pointer-events-none" />
 
+             {wildcard && (
+                 <div className="absolute top-8 z-20 flex flex-col items-center gap-2" data-testid="tv-wildcard">
+                     <span className="bg-accent text-accent-foreground px-8 py-3 rounded-full text-3xl md:text-5xl font-black uppercase tracking-widest shadow-2xl">Wildcard</span>
+                     {wildcard.team && (
+                         <span className="text-xl md:text-3xl font-bold text-foreground">
+                             {teams.find(t => t.id === wildcard.team)?.name}
+                             {wildcard.wager !== null && wildcard.wager !== undefined ? ` wagers ${wildcard.wager}` : " is playing"}
+                         </span>
+                     )}
+                 </div>
+             )}
+
              <AnimatePresence>
                  {buzzerQueue.length > 0 && !showAnswer && (
                      <motion.div
@@ -284,7 +310,8 @@ export default function GameBoard() {
 
             {/* If someone buzzed, hide the question unless host overrides */}
             <AnimatePresence mode="wait">
-                {(!buzzerQueue.length || hostForceShowQuestion || showAnswer) ? (
+                {/* A Wildcard's question waits until the wager is in. */}
+                {(wildcard ? (wildcard.wager !== null && wildcard.wager !== undefined) || showAnswer : (!buzzerQueue.length || hostForceShowQuestion || showAnswer)) ? (
                     <motion.h1
                         key="question-text"
                         initial={{ opacity: 0, y: 20 }}

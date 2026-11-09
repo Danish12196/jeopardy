@@ -81,6 +81,16 @@ const BUZZ_RULES = {
   deleteRule: null,
 };
 
+// All In wagers: phones (guests) place one wager per team while the game is
+// in its wager phase. Only the host can see them until the reveal starts.
+const WAGER_RULES = {
+  listRule: 'game.host = @request.auth.id || game.allInPhase = "reveal" || game.allInPhase = "done"',
+  viewRule: 'game.host = @request.auth.id || game.allInPhase = "reveal" || game.allInPhase = "done"',
+  createRule: 'game.allInPhase = "wager" && game.teams.id ?= team && amount >= 0',
+  updateRule: null,
+  deleteRule: null,
+};
+
 const timestamps = [
   { name: "created", type: "autodate", onCreate: true, onUpdate: false },
   { name: "updated", type: "autodate", onCreate: true, onUpdate: true },
@@ -186,6 +196,18 @@ const COLLECTIONS = [
       // Goes up by one each time the host opens, resets or moves on from the
       // buzzers. Buzzes from an older round are ignored and can't be created.
       { name: "buzzRound", type: "number", onlyInt: true },
+      // Score changes the host can undo (newest last), kept with the game so
+      // a reload doesn't lose them.
+      { name: "scoreHistory", type: "json", maxSize: 0 },
+      // Wildcard tiles (question ids) and the one being played:
+      // { question, team, wager, resolved }.
+      { name: "wildcards", type: "json", maxSize: 0 },
+      { name: "wildcard", type: "json", maxSize: 0 },
+      // All In: "" (not started), "wager", "question", "reveal" or "done", plus
+      // { category, question, answer, results: {teamId: bool}, order: [teamId], revealed }.
+      { name: "allInPhase", type: "text" },
+      { name: "allIn", type: "json", maxSize: 0 },
+      { name: "gameOver", type: "bool" },
     ],
   },
   {
@@ -198,6 +220,18 @@ const COLLECTIONS = [
     ],
     indexes: [
       "CREATE UNIQUE INDEX `idx_buzzes_game_round_team` ON `buzzes` (`game`, `round`, `team`)",
+    ],
+  },
+  {
+    name: "wagers",
+    rules: WAGER_RULES,
+    fields: [
+      relation("game", "games", { single: true, required: true, cascade: true }),
+      relation("team", "teams", { single: true, required: true, cascade: true }),
+      { name: "amount", type: "number", onlyInt: true, min: 0 },
+    ],
+    indexes: [
+      "CREATE UNIQUE INDEX `idx_wagers_game_team` ON `wagers` (`game`, `team`)",
     ],
   },
 ];

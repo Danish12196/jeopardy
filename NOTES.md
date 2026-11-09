@@ -63,6 +63,29 @@ Superusers bypass every rule in PocketBase, so rules no longer mention them.
   question opened in the first moments didn't show. It now subscribes after
   loading and refetches once subscribed.
 
+### Phase 5: game features
+All five done. Names follow the Lockout brand: **Wildcard** and **All In**.
+1. **Undo** the last score change (host, "Undo last score change"). The
+   history lives on the game (`games.scoreHistory`, last 20 changes), so it
+   survives a reload of the host screen.
+2. **Manual adjust**: each team row takes a number (e.g. `-250`) added to
+   the score. Undoable.
+3. **Wildcard**: "Mark Wildcards" lets the host mark any tiles (only the
+   host sees the marks; `games.wildcards`). Opening one keeps the buzzers
+   locked; the host picks the team that chose it and enters the wager,
+   capped at the team's score or the board's top value, whichever is higher.
+   The TV shows "Wildcard", then the team and wager, then the question.
+   Right/Wrong adds or takes the wager. State in `games.wildcard`.
+4. **All In**: host types a category, question and answer and opens
+   wagers. Phones enter a wager (0 to their score), stored in a new
+   `wagers` collection that only the host can read until the reveal. The
+   host closes wagers (the question appears on the TV), marks each team
+   right or wrong, and reveals teams one at a time on the TV, lowest score
+   first. State in `games.allInPhase` and `games.allIn`.
+5. **Game over**: "Show final standings" (after All In) or "End game"
+   (any time) sets `games.gameOver`; the TV shows final standings and phones
+   show their place.
+
 ## Open questions
 - Production's PocketBase version isn't known here. Tests use v0.29.3; the
   rules only use features from v0.23+ (`:isset`, `?=`, `buzzRound+`
@@ -71,6 +94,13 @@ Superusers bypass every rule in PocketBase, so rules no longer mention them.
   Phones look games up by code without logging in, and PocketBase rules
   can't require a filter. After v2 guests can't write to a game, so the risk
   is low. Left as is.
+- The All In question and answer are stored on the game record, which
+  anyone can read through the API. Players would have to go looking. Board
+  questions were already readable the same way.
+- Manual adjust adds to the score (a delta) rather than setting it. A delta
+  felt safer and is undoable either way.
+- A Wildcard wager is entered by the host on the host screen (as the brief
+  says); phones only enter wagers for All In.
 - Anyone with a game code can buzz as any team in that game (teams have no
   login). Same as before; not changed.
 - A private template's questions can't be loaded by a logged-out TV. That
