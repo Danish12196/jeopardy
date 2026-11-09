@@ -9,8 +9,14 @@ import pb from "@/pb";
 export function useWagers(gameId: string | undefined, enabled: boolean, reloadKey: unknown = 0) {
   const [wagers, setWagers] = useState<Record<string, number>>({});
 
+  // Start empty only for a different game. A refresh of the same game (phase
+  // change, reconnect) keeps what's loaded, so the host's reveal never sees a
+  // wager briefly missing and scores it as 0.
   useEffect(() => {
     setWagers({});
+  }, [gameId]);
+
+  useEffect(() => {
     if (!gameId || !enabled) return;
     let cancelled = false;
     let unsubscribe: (() => Promise<void>) | null = null;

@@ -39,6 +39,27 @@ test("import the sample CSV and play a question from it", async ({ page: host, b
   await tv.ctx.close();
 });
 
+test("imported values are the values the game plays and scores", async ({ page: host }) => {
+  await loginAsHost(host);
+  await host.getByRole("tab", { name: "Import / Export" }).click();
+  await host.getByLabel("Board file").setInputFiles({
+    name: "big.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("category,value,question,answer,hint\nBig,500,Q five hundred,A1,\nBig,1000,Q one thousand,A2,\n"),
+  });
+  const title = `Big ${Date.now()}`;
+  await host.getByLabel("Template title").fill(title);
+  await host.getByRole("button", { name: "Save as template" }).click();
+  await expect(host.getByText(`Saved "${title}"`)).toBeVisible();
+
+  await host.getByRole("tab", { name: "Use a Template" }).click();
+  await createGameViaUI(host, ["Team 1"], title);
+  await host.getByRole("button", { name: "1000", exact: true }).click();
+  await expect(host.getByText("Q one thousand")).toBeVisible();
+  await host.getByRole("button", { name: "Correct: add points to Team 1" }).click();
+  await expect(host.getByTestId("host-score-Team 1")).toHaveText("1000");
+});
+
 test("a broken CSV shows errors and can't be saved", async ({ page: host }) => {
   await loginAsHost(host);
   await host.getByRole("tab", { name: "Import / Export" }).click();

@@ -38,8 +38,21 @@ export function revealOrder(scores: TeamScore[], teamIds: string[]): string[] {
   return [...teamIds].sort((a, b) => scoreOf(scores, a) - scoreOf(scores, b));
 }
 
+/**
+ * One Undo step: the scores before a change, plus the Wildcard and All In
+ * state at that moment. Entries saved before this existed are plain score
+ * arrays, which still restore the scores.
+ */
+export type ScoreSnapshot = TeamScore[] | { teamScores: TeamScore[]; wildcard: unknown; allIn: unknown };
+
+/** The game fields to write back for an Undo step. */
+export function restoreSnapshot(snap: ScoreSnapshot): Record<string, unknown> {
+  if (Array.isArray(snap)) return { teamScores: snap };
+  return { teamScores: snap.teamScores, wildcard: snap.wildcard, allIn: snap.allIn };
+}
+
 /** Keeps the undo list short. */
 export const MAX_UNDO = 20;
-export function pushHistory(history: TeamScore[][] | undefined, prev: TeamScore[]): TeamScore[][] {
+export function pushHistory(history: ScoreSnapshot[] | undefined, prev: ScoreSnapshot): ScoreSnapshot[] {
   return [...(history ?? []), prev].slice(-MAX_UNDO);
 }

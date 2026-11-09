@@ -13,7 +13,7 @@ import { useWagers } from "@/hooks/useWagers";
 import { useLiveConnection } from "@/hooks/useLiveConnection";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 
-import { allInMaxWager, applyDelta, clampWager, pushHistory, revealOrder, scoreOf, type TeamScore } from "@/lib/scoring";
+import { allInMaxWager, applyDelta, clampWager, pushHistory, restoreSnapshot, revealOrder, scoreOf, type ScoreSnapshot, type TeamScore } from "@/lib/scoring";
 
 export default function GameHost() {
   const { uniqueID } = useParams();
@@ -52,7 +52,8 @@ export default function GameHost() {
   const cols = Math.max(categories.length, 1);
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
   const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
-  const topValue = values[values.length - 1] || 0;
+  // Highest tile on the board, for the Wildcard wager cap.
+  const topValue = Math.max(0, ...questions.flat().map((q) => q.value || 0));
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -88,7 +89,8 @@ export default function GameHost() {
               id: q.id,
               question: q.question,
               answer: q.answer,
-              value: (i + 1) * 100,
+              // The stored value (e.g. from an imported board), else 100, 200, ...
+              value: Number(q.value) > 0 ? Number(q.value) : (i + 1) * 100,
             }));
         });
 
@@ -156,12 +158,18 @@ export default function GameHost() {
 
   /** Writes new scores and remembers the old ones for Undo. */
   const changeScores = (next: TeamScore[], extra: Record<string, unknown> = {}) =>
-    updateGame({ teamScores: next, scoreHistory: pushHistory(game?.scoreHistory, scores), ...extra });
+    updateGame({
+      teamScores: next,
+      // Snapshot the Wildcard/All In state too, so Undo also reopens a scored
+      // Wildcard or takes back an All In reveal.
+      scoreHistory: pushHistory(game?.scoreHistory, { teamScores: scores, wildcard: game?.wildcard ?? null, allIn: game?.allIn ?? null }),
+      ...extra,
+    });
 
   const undoScore = async () => {
-    const history: TeamScore[][] = game?.scoreHistory || [];
+    const history: ScoreSnapshot[] = game?.scoreHistory || [];
     if (!history.length) return;
-    await updateGame({ teamScores: history[history.length - 1], scoreHistory: history.slice(0, -1) });
+    await updateGame({ ...restoreSnapshot(history[history.length - 1]), scoreHistory: history.slice(0, -1) });
   };
 
   const applyAdjust = async (teamId: string) => {
@@ -374,8 +382,8 @@ export default function GameHost() {
               {Array.from({ length: categories.length * rowCount }).map((_, i) => {
                 const col = i % cols;
                 const row = Math.floor(i / cols);
-                const value = values[row];
                 const q = questions[col]?.[row];
+                const value = q?.value ?? values[row];
 
                 if (!q) {
                     return (

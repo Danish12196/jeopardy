@@ -80,7 +80,8 @@ export default function GameBoard() {
               id: q.id,
               question: q.question,
               answer: q.answer,
-              value: (i + 1) * 100,
+              // The stored value (e.g. from an imported board), else 100, 200, ...
+              value: Number(q.value) > 0 ? Number(q.value) : (i + 1) * 100,
             }));
         });
 
@@ -214,8 +215,8 @@ export default function GameBoard() {
             {Array.from({ length: categories.length * rowCount }).map((_, i) => {
               const col = i % cols;
               const row = Math.floor(i / cols);
-              const value = values[row];
               const q = questions[col]?.[row];
+              const value = q?.value ?? values[row];
 
               if (!q) {
                   return (

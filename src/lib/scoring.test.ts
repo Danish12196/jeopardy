@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allInMaxWager, applyDelta, clampWager, pushHistory, revealOrder, scoreOf, standings, wildcardMaxWager, MAX_UNDO } from "./scoring";
+import { allInMaxWager, applyDelta, clampWager, pushHistory, restoreSnapshot, revealOrder, scoreOf, standings, wildcardMaxWager, MAX_UNDO, type ScoreSnapshot } from "./scoring";
 
 describe("scoring", () => {
   const scores = [{ id: "a", score: 300 }, { id: "b", score: -100 }];
@@ -32,9 +32,16 @@ describe("scoring", () => {
   });
 
   it("keeps a bounded undo history", () => {
-    let h: { id: string; score: number }[][] = [];
+    let h: ScoreSnapshot[] = [];
     for (let i = 0; i < MAX_UNDO + 5; i++) h = pushHistory(h, [{ id: "a", score: i }]);
     expect(h).toHaveLength(MAX_UNDO);
     expect(h.at(-1)).toEqual([{ id: "a", score: MAX_UNDO + 4 }]);
+  });
+
+  it("restores round state with the scores, and old score-only entries", () => {
+    const s = [{ id: "a", score: 1 }];
+    expect(restoreSnapshot(s)).toEqual({ teamScores: s });
+    const w = { question: "q", team: "a", wager: 5, resolved: false };
+    expect(restoreSnapshot({ teamScores: s, wildcard: w, allIn: null })).toEqual({ teamScores: s, wildcard: w, allIn: null });
   });
 });

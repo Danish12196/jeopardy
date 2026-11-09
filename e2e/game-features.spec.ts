@@ -58,6 +58,12 @@ test("Wildcard: only the choosing team plays, wager capped", async ({ page: host
   await expect(host.getByTestId("host-score-Team 1")).toHaveText("500");
   await expect(tv.page.getByTestId("tv-score-Team 1")).toHaveText("500");
 
+  // Undo puts the score back and reopens Right/Wrong, so the host can correct it.
+  await host.getByRole("button", { name: "Undo last score change" }).click();
+  await expect(host.getByTestId("host-score-Team 1")).toHaveText("200");
+  await host.getByRole("button", { name: "Wrong (−300)" }).click();
+  await expect(host.getByTestId("host-score-Team 1")).toHaveText("-100");
+
   await Promise.all([tv.ctx.close(), phone.ctx.close()]);
 });
 
@@ -99,6 +105,12 @@ test("All In: hidden wagers, right/wrong, one-by-one reveal, game over", async (
   // Lowest score first.
   await host.getByRole("button", { name: "Reveal Team 1" }).click();
   await expect(tv.page.getByTestId("allin-reveal-Team 1")).toContainText("+400 → 800");
+  await expect(tv.page.getByTestId("allin-reveal-Team 2")).toHaveCount(0);
+  await host.getByRole("button", { name: "Reveal Team 2" }).click();
+  await expect(tv.page.getByTestId("allin-reveal-Team 2")).toContainText("−250 → 350");
+
+  // Undo takes the last reveal back off the TV as well as the score.
+  await host.getByRole("button", { name: "Undo last score change" }).click();
   await expect(tv.page.getByTestId("allin-reveal-Team 2")).toHaveCount(0);
   await host.getByRole("button", { name: "Reveal Team 2" }).click();
   await expect(tv.page.getByTestId("allin-reveal-Team 2")).toContainText("−250 → 350");
