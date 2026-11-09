@@ -92,7 +92,7 @@ function run(cmd, args, env) {
  * Starts PocketBase with a fresh schema and seed data.
  * Returns { url, env, stop }.
  */
-export async function startTestPocketBase({ seed = true, log = false } = {}) {
+export async function startTestPocketBase({ seed = true, init = true, log = false } = {}) {
   await download();
   const dataDir = mkdtempSync(path.join(tmpdir(), "lockout-pb-"));
   const port = await freePort();
@@ -131,7 +131,7 @@ export async function startTestPocketBase({ seed = true, log = false } = {}) {
       PB_SUPERUSER_PASSWORD: SUPERUSER_PASSWORD,
     };
     const node = process.execPath;
-    if ((await run(node, [path.join(ROOT, "scripts/init-db.mjs"), "--sync-rules"], env)) !== 0) throw new Error("init-db.mjs failed");
+    if (init && (await run(node, [path.join(ROOT, "scripts/init-db.mjs"), "--sync-rules"], env)) !== 0) throw new Error("init-db.mjs failed");
     if (seed && (await run(node, [path.join(ROOT, "scripts/seed-test.mjs")], env)) !== 0) throw new Error("seed-test.mjs failed");
     return { url, env, stop, dataDir };
   } catch (err) {

@@ -94,6 +94,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         title: `Game: ${selectedTemplate.title}`,
         uniqueID,
         template: selectedTemplate.id,
+        host: pb.authStore.record?.id,
         teams: selectedTeams,
         categories,
         values,

@@ -98,6 +98,7 @@ export async function createGameViaApi(pb: PocketBase, teamNames: string[] = TEA
     title: `Game: ${TEMPLATE_TITLE}`,
     uniqueID: code,
     template: template.id,
+    host: pb.authStore.record!.id,
     teams: ids,
     teamScores: ids.map((id) => ({ id, score: 0 })),
     answeredQuestions: [],

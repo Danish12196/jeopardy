@@ -219,6 +219,19 @@ export default function GameHost() {
 
   if (!game) return <div className="p-8 text-foreground bg-background min-h-screen">Loading Host View...</div>;
 
+  // Only the game's host (or a superuser) can change it; say so instead of
+  // showing controls that will all fail.
+  if (game.host && game.host !== pb.authStore.record?.id) {
+    return (
+      <div className="min-h-screen bg-background bg-animated-gradient text-foreground flex items-center justify-center p-8">
+        <div className="bg-card/60 backdrop-blur-md p-8 rounded-2xl border border-border/50 shadow-xl max-w-md text-center">
+          <h1 className="text-2xl font-bold text-accent mb-4">Not your game</h1>
+          <p className="text-muted-foreground">Game {uniqueID} belongs to another host. Log in as that host to run it.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background bg-animated-gradient text-foreground p-4 md:p-8">
       <div className="flex justify-between items-center mb-6 bg-card/60 backdrop-blur-md p-4 rounded-xl border border-border/50 shadow-md">

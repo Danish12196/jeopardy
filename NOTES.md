@@ -28,7 +28,37 @@ production upgrade steps are filled in at the end.
   readable for one release so old clients don't crash, but nothing writes to
   it any more. Remove the field in the release after v2.
 
+### Phase 3: permissions
+Superusers bypass every rule in PocketBase, so rules no longer mention them.
+- **users**: `isSuperuser` was a normal field a user could set when
+  registering (create rule was `""`), and every content rule trusted
+  `@request.auth.isSuperuser = true`. Anyone could register as a "superuser"
+  and edit or delete everything. Create and update now refuse
+  `isSuperuser`, and no rule reads it. List is limited to yourself; view
+  needs a login (the template picker shows author names).
+- **games**: new `host` relation. Create needs `host = you`; update and
+  delete are host-only; the host can't be changed to someone else. Existing
+  games get their template's owner as host (games with no template stay
+  superuser-only and init-db lists them).
+- **teams, question_categories, questions, game_templates**: create now
+  requires `user = you` (before, any logged-in user could create content
+  attributed to someone else), and updates can't change `user`.
+- `GameHost` shows "Not your game" instead of controls that would all fail.
+- Tests: `e2e/permissions.spec.ts` (second user vs first user's game,
+  template, questions, categories and teams; isSuperuser escalation) and
+  `e2e/upgrade.spec.ts` (old init-db, then new one: data kept, host
+  backfilled, dry run changes nothing, second run is a no-op).
+
 ## Open questions
 - Production's PocketBase version isn't known here. Tests use v0.29.3; the
   rules only use features from v0.23+ (`:isset`, `?=`, `buzzRound+`
   modifiers, autodate, unique indexes).
+- `games` can still be listed by anyone, so game codes are enumerable.
+  Phones look games up by code without logging in, and PocketBase rules
+  can't require a filter. After v2 guests can't write to a game, so the risk
+  is low. Left as is.
+- Anyone with a game code can buzz as any team in that game (teams have no
+  login). Same as before; not changed.
+- A private template's questions can't be loaded by a logged-out TV. That
+  was already the case; opening the TV in the host's logged-in browser
+  works. Not changed, because opening it up would leak answers.

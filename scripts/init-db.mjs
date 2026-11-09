@@ -28,15 +28,21 @@ const pb = new PocketBase(PB_URL);
 pb.autoCancellation(false);
 
 // Rules: "" = anyone (incl. guests), null = superusers only, otherwise a filter.
-// Anyone can read (players and the board aren't logged in); only logged-in users
-// can create or change content.
+// Superusers (the _superusers collection) bypass every rule, so rules never
+// mention them. Anyone can read what players and the board need; only the
+// owner can change their own content.
 const LOGGED_IN = '@request.auth.id != ""';
+// The record's owner field must be the caller, on create and on any update
+// that sends it, so nobody can create content as someone else or hand it over.
+const owns = (field) => `${LOGGED_IN} && ${field} = @request.auth.id`;
+const keepsOwner = (field) =>
+  `(@request.body.${field}:isset = false || @request.body.${field} = @request.auth.id)`;
 const AUTHOR_RULES = {
-  listRule: "isPublic = true || user = @request.auth.id || @request.auth.isSuperuser = true",
-  viewRule: "isPublic = true || user = @request.auth.id || @request.auth.isSuperuser = true",
-  createRule: LOGGED_IN,
-  updateRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
-  deleteRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
+  listRule: "isPublic = true || (@request.auth.id != \"\" && user = @request.auth.id)",
+  viewRule: "isPublic = true || (@request.auth.id != \"\" && user = @request.auth.id)",
+  createRule: owns("user"),
+  updateRule: `${owns("user")} && ${keepsOwner("user")}`,
+  deleteRule: owns("user"),
 };
 
 // Teams: you only list your own (the setup page relies on this rule instead of
@@ -46,20 +52,20 @@ const TEAM_RULES = {
   ...AUTHOR_RULES,
   // The auth check matters: guests have an empty auth id, which would match
   // teams saved without an owner.
-  listRule: '(@request.auth.id != "" && user = @request.auth.id) || @request.auth.isSuperuser = true',
+  listRule: owns("user"),
   viewRule: "",
 };
 
-// Games: anyone can read (the TV board and phones aren't logged in). Guests
-// can't write to a game at all; phones buzz by creating a `buzzes` record.
-// `buzzerQueue` is kept (read-only, no longer written) for one release so
-// old clients don't crash.
+// Games: anyone can read (the TV board and phones aren't logged in). Only the
+// game's host can change or delete it. Guests can't write to a game at all;
+// phones buzz by creating a `buzzes` record. `buzzerQueue` is kept (read-only,
+// no longer written) for one release so old clients don't crash.
 const GAME_RULES = {
   listRule: "",
   viewRule: "",
-  createRule: LOGGED_IN,
-  deleteRule: LOGGED_IN,
-  updateRule: LOGGED_IN,
+  createRule: owns("host"),
+  updateRule: `${owns("host")} && ${keepsOwner("host")}`,
+  deleteRule: owns("host"),
 };
 
 // Buzzes: one record per team per buzz round. Anyone can create one, but
@@ -95,14 +101,19 @@ const COLLECTIONS = [
   {
     name: "users",
     rules: {
-      listRule: "",
-      viewRule: "",
-      createRule: "",
+      // You can list yourself; logged-in users can view others by id (the
+      // template picker shows the author's name).
+      listRule: "id = @request.auth.id",
+      viewRule: LOGGED_IN,
+      // Anyone can register, but nobody can set the old isSuperuser flag.
+      createRule: "@request.body.isSuperuser:isset = false",
       updateRule: "id = @request.auth.id && @request.body.isSuperuser:isset = false",
       deleteRule: "id = @request.auth.id",
     },
     fields: [
       { name: "username", type: "text" },
+      // Deprecated: rules used to trust this user-settable flag. No rule reads
+      // it any more; kept so existing data isn't dropped.
       { name: "isSuperuser", type: "bool" },
     ],
     isAuth: true,
@@ -158,6 +169,9 @@ const COLLECTIONS = [
       { name: "title", type: "text" },
       { name: "uniqueID", type: "text", required: true },
       relation("template", "game_templates", { single: true }),
+      // The user running the game. Set on create; backfilled below for
+      // older games from the template's owner.
+      relation("host", "users", { single: true }),
       relation("teams", "teams"),
       { name: "categories", type: "json", maxSize: 0 },
       { name: "values", type: "json", maxSize: 0 },
@@ -288,6 +302,41 @@ async function upsert(def) {
   }
 }
 
+// Games created before `host` existed get their template's owner as host, so
+// they stay editable. Games whose template is gone stay host-less (superuser
+// only) and are listed.
+async function backfillGameHosts() {
+  const games = await findCollection("games");
+  if (!games) return; // dry run on an empty database
+  const hasHost = games.fields.some((f) => f.name === "host");
+  const list = await pb.collection("games").getFullList({
+    fields: hasHost ? "id,uniqueID,host,template" : "id,uniqueID,template",
+    ...(hasHost ? { filter: 'host = ""' } : {}),
+  });
+  if (!list.length) return;
+  const templates = new Map();
+  let fixed = 0;
+  const orphans = [];
+  for (const g of list) {
+    if (!g.template) { orphans.push(g.uniqueID); continue; }
+    if (!templates.has(g.template)) {
+      try {
+        templates.set(g.template, (await pb.collection("game_templates").getOne(g.template, { fields: "user" })).user);
+      } catch {
+        templates.set(g.template, "");
+      }
+    }
+    const owner = templates.get(g.template);
+    if (!owner) { orphans.push(g.uniqueID); continue; }
+    fixed++;
+    if (!DRY_RUN) await pb.collection("games").update(g.id, { host: owner });
+  }
+  if (fixed) console.log(`~ games: set host on ${fixed} existing game(s) from the template owner`);
+  if (orphans.length) {
+    console.warn(`! games: ${orphans.length} game(s) have no template owner and stay superuser-only: ${orphans.join(", ")}`);
+  }
+}
+
 async function main() {
   console.log(`Connecting to ${PB_URL}${DRY_RUN ? " (dry run, nothing will be changed)" : ""}`);
   await pb.collection("_superusers").authWithPassword(EMAIL, PASSWORD);
@@ -296,6 +345,8 @@ async function main() {
   for (const def of COLLECTIONS) {
     await upsert(def);
   }
+
+  await backfillGameHosts();
 
   // The bulk-question form uses the batch API, which is off by default.
   const settings = await pb.settings.getAll();
