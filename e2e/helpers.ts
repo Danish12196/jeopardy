@@ -118,3 +118,28 @@ export async function expectRejected(p: Promise<unknown>) {
   expect(status, "request should have been rejected").toBeGreaterThanOrEqual(400);
   expect(status).toBeLessThan(500);
 }
+
+/**
+ * Seeds the portfolio game: the 6x5 "Friday Quiz" board from samples/board.csv
+ * and two teams, Team Pixel and Team Byte. Used by the screenshot and demo
+ * video specs. Returns the game record.
+ */
+export async function seedPortfolioGame(api: PocketBase, code: string, board: { categories: { name: string; questions: Record<string, unknown>[] }[] }) {
+  const me = api.authStore.record!.id;
+  const catIds: string[] = [];
+  const qIds: string[] = [];
+  for (const c of board.categories) {
+    const cat = await api.collection("question_categories").create({ name: c.name, user: me, isPublic: true });
+    catIds.push(cat.id);
+    for (const [i, q] of c.questions.entries()) {
+      qIds.push((await api.collection("questions").create({ ...q, difficulty: i + 1, category: cat.id, user: me, isPublic: true })).id);
+    }
+  }
+  const tpl = await api.collection("game_templates").create({ title: "Friday Quiz", categories: catIds, questions: qIds, user: me, isPublic: true });
+  const pixel = await api.collection("teams").create({ name: "Team Pixel", user: me });
+  const byte = await api.collection("teams").create({ name: "Team Byte", user: me });
+  return api.collection("games").create({
+    uniqueID: code, title: "Game: Friday Quiz", template: tpl.id, host: me, teams: [pixel.id, byte.id],
+    teamScores: [{ id: pixel.id, score: 0 }, { id: byte.id, score: 0 }], answeredQuestions: [], buzzRound: 0,
+  });
+}

@@ -127,6 +127,17 @@ All five done. Names follow the Lockout brand: **Wildcard** and **All In**.
   sizes with `SCREENSHOTS=1 npm run e2e -- e2e/screenshots.spec.ts`. The TV
   and login shots didn't change. The demo videos weren't re-recorded.
 
+### Portfolio media refresh
+- `e2e/screenshots.spec.ts` now re-takes every portfolio screenshot, plus new
+  v2 shots: 09-tv-wildcard, 10-tv-all-in-reveal, 11-tv-game-over,
+  mobile-05-all-in-wager and mobile-06-game-over.
+  `SCREENSHOTS=1 npm run e2e -- e2e/screenshots.spec.ts`
+- `e2e/demo-video.spec.ts` re-records demo.mp4 (TV + phone, 1760x900) and
+  demo-host.mp4 (host, 1440x900) with their posters, from one scripted game
+  covering a buzz, a Wildcard and All In through to final standings. Needs
+  ffmpeg. `DEMO_VIDEO=1 npm run e2e -- e2e/demo-video.spec.ts`
+- Run the two specs separately: each seeds the same game code.
+
 ### Phase 6: reconnecting
 - One shared watcher (`src/hooks/useLiveConnection.ts`) listens for the
   realtime connection dropping and coming back (`PB_CONNECT`), the browser
