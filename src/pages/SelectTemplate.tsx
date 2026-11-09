@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
+import { makeGameCode } from "@/lib/gameCode";
 import {
   Select,
   SelectContent,
@@ -11,11 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-function makeGameCode(length = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-}
 
 export default function SelectTemplate({ selectedTeams }: { selectedTeams: string[] }) {
   const navigate = useNavigate();
@@ -98,12 +94,13 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         title: `Game: ${selectedTemplate.title}`,
         uniqueID,
         template: selectedTemplate.id,
+        host: pb.authStore.record?.id,
         teams: selectedTeams,
         categories,
         values,
         teamScores: selectedTeams.map((t) => ({ id: t, score: 0 })),
         answeredQuestions: [],
-        buzzerQueue: [],
+        buzzRound: 0,
         showAnswer: false,
         buzzerUnlocked: false,
         hostForceShowQuestion: false

@@ -7,6 +7,7 @@ import AddCategoryForm from "./AddCategoryForm";
 import AddBulkQuestionForm from "./AddBulkQuestionForm";
 import SelectTemplate from "./SelectTemplate";
 import CreateTemplate from "./CreateTemplate";
+import BoardImportExport from "./BoardImportExport";
 import pb from "@/pb";
 
 export default function GameSetup() {
@@ -130,6 +131,7 @@ export default function GameSetup() {
                 <TabsTrigger value="create-template" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Create a Template</TabsTrigger>
                 <TabsTrigger value="add-categories" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Categories</TabsTrigger>
                 <TabsTrigger value="add-bulk-questions" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Questions</TabsTrigger>
+                <TabsTrigger value="import-export" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md flex-1 min-w-[150px] py-2">Import / Export</TabsTrigger>
             </TabsList>
 
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -147,6 +149,10 @@ export default function GameSetup() {
 
                 <TabsContent value="add-bulk-questions" className="m-0 mt-2">
                     <AddBulkQuestionForm />
+                </TabsContent>
+
+                <TabsContent value="import-export" className="m-0 mt-2">
+                    <BoardImportExport />
                 </TabsContent>
             </div>
         </Tabs>

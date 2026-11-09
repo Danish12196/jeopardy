@@ -3,7 +3,16 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
+import { useGameSubscription } from "@/hooks/useGameSubscription";
 import useSound from "use-sound";
+import { useBuzzes } from "@/hooks/useBuzzes";
+import { buzzGap } from "@/lib/buzzes";
+import { useWagers } from "@/hooks/useWagers";
+import AllInScreen from "@/components/tv/AllInScreen";
+import GameOverScreen from "@/components/tv/GameOverScreen";
+import { useLiveConnection } from "@/hooks/useLiveConnection";
+import ReconnectingBadge from "@/components/ReconnectingBadge";
+
 
 // You can replace this with a valid sound URL if you prefer.
 // A simple beep data URI for the buzzer sound.
@@ -27,7 +36,14 @@ export default function GameBoard() {
   const [activeQuestion, setActiveQuestion] = useState<any | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
-  const [buzzerQueue, setBuzzerQueue] = useState<any[]>([]);
+  const [buzzRound, setBuzzRound] = useState(0);
+  const { connected, reloadKey } = useLiveConnection();
+  // The latest game record, for Wildcard, All In and game over.
+  const [live, setLive] = useState<any>(null);
+  const allInPhase: string = live?.allInPhase || "";
+  const wagers = useWagers(gameId ?? undefined, allInPhase === "reveal" || allInPhase === "done", `${allInPhase}-${reloadKey}`);
+  const wildcard = live?.wildcard && live.wildcard.question === live.currentActiveQuestion ? live.wildcard : null;
+  const buzzerQueue = useBuzzes(gameId ?? undefined, buzzRound, reloadKey);
   const [hostForceShowQuestion, setHostForceShowQuestion] = useState(false);
 
   // Use a generic pop sound for revealing questions/answers (fallback to native browser handling if needed)
@@ -42,7 +58,6 @@ export default function GameBoard() {
         });
         if (gameList.length === 0) return;
         const g = gameList[0];
-        setGameId(g.id);
 
         const template = await pb.collection("game_templates").getOne(g.template);
         const categoryRecords = await Promise.all(
@@ -65,7 +80,8 @@ export default function GameBoard() {
               id: q.id,
               question: q.question,
               answer: q.answer,
-              value: (i + 1) * 100,
+              // The stored value (e.g. from an imported board), else 100, 200, ...
+              value: Number(q.value) > 0 ? Number(q.value) : (i + 1) * 100,
             }));
         });
 
@@ -84,6 +100,7 @@ export default function GameBoard() {
 
         setTeams(mappedTeams);
         setUsedQuestions(g.answeredQuestions || []);
+        setLive(g);
 
         if (g.currentActiveQuestion) {
           const flatQs = grouped.flat();
@@ -93,9 +110,10 @@ export default function GameBoard() {
         setShowAnswer(g.showAnswer || false);
         setHostForceShowQuestion(g.hostForceShowQuestion || false);
 
-        const queue = g.buzzerQueue || [];
-        setBuzzerQueue(queue);
-        lastBuzzerCountRef.current = queue.length;
+        setBuzzRound(g.buzzRound ?? 0);
+        // Subscribe only once the questions are loaded, so the first live
+        // update can find the active question.
+        setGameId(g.id);
 
       } catch (err) {
         console.error("Board fetch error:", err);
@@ -105,25 +123,16 @@ export default function GameBoard() {
     fetchGame();
   }, [uniqueID]);
 
-  useEffect(() => {
-    if (!gameId) return;
-
-    const sub = async () => {
-      await pb.collection("games").subscribe(gameId, (event) => {
-        const g = event.record;
+  // Live updates, plus a refetch after any reconnect. Starts once the
+  // questions are loaded (gameId is set last).
+  useGameSubscription(gameId, reloadKey, (g: any) => {
 
         setUsedQuestions(g.answeredQuestions || []);
+        setLive(g);
         setShowAnswer(g.showAnswer || false);
         setHostForceShowQuestion(g.hostForceShowQuestion || false);
 
-        const newQueue = g.buzzerQueue || [];
-        setBuzzerQueue(newQueue);
-
-        // Play sound if someone new buzzed in
-        if (newQueue.length > lastBuzzerCountRef.current) {
-            try { playBuzzer(); } catch(e) { console.warn("Failed to play buzzer sound", e); }
-        }
-        lastBuzzerCountRef.current = newQueue.length;
+        setBuzzRound(g.buzzRound ?? 0);
 
         setTeams((prev) =>
           prev.map((t) => ({
@@ -142,17 +151,19 @@ export default function GameBoard() {
         } else {
           setActiveQuestion(null);
         }
-      });
-    };
+  });
 
-    sub();
-    return () => {
-      pb.collection("games").unsubscribe(gameId);
-    };
-  }, [gameId, playBuzzer]);
+  // Play a sound when someone new buzzes in.
+  useEffect(() => {
+    if (buzzerQueue.length > lastBuzzerCountRef.current) {
+      try { playBuzzer(); } catch (e) { console.warn("Failed to play buzzer sound", e); }
+    }
+    lastBuzzerCountRef.current = buzzerQueue.length;
+  }, [buzzerQueue.length, playBuzzer]);
 
   return (
     <div className="min-h-screen flex flex-col p-4 md:p-8 overflow-hidden bg-background bg-animated-gradient">
+      <ReconnectingBadge show={!connected} />
       {/* Scoreboard at Top */}
       <div className="flex justify-center gap-4 md:gap-8 mb-6 md:mb-8 flex-wrap">
         <AnimatePresence>
@@ -170,6 +181,7 @@ export default function GameBoard() {
                     initial={{ y: -10, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     className="text-accent text-2xl md:text-4xl font-mono font-bold"
+                    data-testid={`tv-score-${team.name}`}
                 >
                     {team.score}
                 </motion.p>
@@ -181,7 +193,11 @@ export default function GameBoard() {
       {/* Main Board Area */}
       <div className="flex-1 flex items-center justify-center w-full overflow-x-auto pb-4">
         <AnimatePresence mode="wait">
-        {!activeQuestion ? (
+        {live?.gameOver ? (
+          <GameOverScreen key="game-over" teams={teams} scores={live.teamScores || []} />
+        ) : allInPhase ? (
+          <AllInScreen key="allin" phase={allInPhase} allIn={live.allIn || {}} teams={teams} scores={live.teamScores || []} wagers={wagers} />
+        ) : !activeQuestion ? (
           <motion.div
             key="board"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -199,8 +215,8 @@ export default function GameBoard() {
             {Array.from({ length: categories.length * rowCount }).map((_, i) => {
               const col = i % cols;
               const row = Math.floor(i / cols);
-              const value = values[row];
               const q = questions[col]?.[row];
+              const value = q?.value ?? values[row];
 
               if (!q) {
                   return (
@@ -244,6 +260,18 @@ export default function GameBoard() {
             {/* Background decorative gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent pointer-events-none" />
 
+             {wildcard && (
+                 <div className="absolute top-8 z-20 flex flex-col items-center gap-2" data-testid="tv-wildcard">
+                     <span className="bg-accent text-accent-foreground px-8 py-3 rounded-full text-3xl md:text-5xl font-black uppercase tracking-widest shadow-2xl">Wildcard</span>
+                     {wildcard.team && (
+                         <span className="text-xl md:text-3xl font-bold text-foreground">
+                             {teams.find(t => t.id === wildcard.team)?.name}
+                             {wildcard.wager !== null && wildcard.wager !== undefined ? ` wagers ${wildcard.wager}` : " is playing"}
+                         </span>
+                     )}
+                 </div>
+             )}
+
              <AnimatePresence>
                  {buzzerQueue.length > 0 && !showAnswer && (
                      <motion.div
@@ -253,7 +281,7 @@ export default function GameBoard() {
                         className="absolute top-8 bg-destructive text-destructive-foreground px-6 md:px-10 py-3 md:py-4 rounded-full text-2xl md:text-4xl font-bold shadow-2xl z-20 flex items-center gap-4 border-4 border-background"
                      >
                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-20 -left-0 -top-0"></span>
-                         🎤 {teams.find(t => t.id === buzzerQueue[0].teamId)?.name} buzzed in!
+                         🎤 {teams.find(t => t.id === buzzerQueue[0].team)?.name} buzzed in!
                      </motion.div>
                  )}
              </AnimatePresence>
@@ -262,13 +290,13 @@ export default function GameBoard() {
                  <div className="absolute top-1/4 mt-8 md:mt-12 text-white/80 text-sm md:text-lg z-10 flex flex-col gap-1">
                     {buzzerQueue.length > 1 && buzzerQueue.slice(1).map((q, idx) => (
                         <motion.div
-                            key={idx}
+                            key={q.id}
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             transition={{ delay: idx * 0.1 }}
                             className="bg-black/40 px-4 py-1 rounded-full backdrop-blur-sm"
                         >
-                            {teams.find(t => t.id === q.teamId)?.name} (+{((q.time - buzzerQueue[0].time) / 1000).toFixed(2)}s)
+                            {teams.find(t => t.id === q.team)?.name} ({buzzGap(buzzerQueue, idx + 1)})
                         </motion.div>
                     ))}
                  </div>
@@ -276,7 +304,8 @@ export default function GameBoard() {
 
             {/* If someone buzzed, hide the question unless host overrides */}
             <AnimatePresence mode="wait">
-                {(!buzzerQueue.length || hostForceShowQuestion || showAnswer) ? (
+                {/* A Wildcard's question waits until the wager is in. */}
+                {(wildcard ? (wildcard.wager !== null && wildcard.wager !== undefined) || showAnswer : (!buzzerQueue.length || hostForceShowQuestion || showAnswer)) ? (
                     <motion.h1
                         key="question-text"
                         initial={{ opacity: 0, y: 20 }}
