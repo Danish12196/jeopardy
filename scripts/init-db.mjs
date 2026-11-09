@@ -44,7 +44,9 @@ const AUTHOR_RULES = {
 // buzzers can show team names.
 const TEAM_RULES = {
   ...AUTHOR_RULES,
-  listRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
+  // The auth check matters: guests have an empty auth id, which would match
+  // teams saved without an owner.
+  listRule: '(@request.auth.id != "" && user = @request.auth.id) || @request.auth.isSuperuser = true',
   viewRule: "",
 };
 
