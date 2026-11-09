@@ -1,14 +1,27 @@
-# Jeopardy Game - UNDER CONSTRUCTION
+# Lockout - UNDER CONSTRUCTION
 
-A customizable Jeopardy game built with React+Vite, supporting team play, categories, and scoring.
+**Buzz first or sit it out.**
+
+Lockout is a quiz night game for one TV and everyone's phone, built with React + Vite and PocketBase. The host runs the board, the TV shows the questions, and each team buzzes in from a phone. Buzzers stay locked until the host opens them, and the first phone in wins the chance to answer.
 
 ## Features
 
-- Create and configure a Jeopardy game board with custom categories and values
+- Build a board from your own categories and questions, and save it as a template
 - Add and name multiple teams
-- Interactive game board with question reveal and scoring
-- State persistence via local storage
+- TV board view with question reveal and live scores
+- Host dashboard with the answer, the buzz queue and scoring
+- Phone buzzers that show **Locked** and **Open** states in real time
 - Responsive UI with [Tailwind CSS](https://tailwindcss.com)
+
+## Brand
+
+| Token | Value |
+| --- | --- |
+| Signal orange (accent) | `#FF5A1F` |
+| Charcoal (background) | `#1C1C1E` |
+| Off-white (text) | `#F4F1EA` |
+
+Special rounds, when added, are called **Wildcard** (the hidden wager tile) and **All In** (the last round where every team wagers).
 
 ## Getting Started
 

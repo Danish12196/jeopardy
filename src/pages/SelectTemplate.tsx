@@ -179,7 +179,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
       <Button
         onClick={startGame}
         disabled={!selectedTemplate || starting || selectedTeams.length === 0}
-        variant="jeopardy"
+        variant="brand"
         className="mt-8 w-full md:w-auto md:min-w-[200px] h-14 text-lg"
       >
         {starting ? "Starting Game..." : "Start Game"}

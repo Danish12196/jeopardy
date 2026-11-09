@@ -93,13 +93,13 @@ export default function Register() {
             )}
           </AnimatePresence>
 
-          <Button type="submit" variant="jeopardy" className="w-full h-14 text-lg">
+          <Button type="submit" variant="brand" className="w-full h-14 text-lg">
             Create Account
           </Button>
         </form>
         <div className="mt-8 text-center text-sm text-muted-foreground relative z-10">
           Already have an account?{" "}
-          <Link to="/login" className="text-accent font-bold hover:underline transition-all hover:text-yellow-300">
+          <Link to="/login" className="text-accent font-bold hover:underline transition-all hover:text-accent/80">
             Login
           </Link>
         </div>

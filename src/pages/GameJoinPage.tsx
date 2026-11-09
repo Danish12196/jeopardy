@@ -30,7 +30,7 @@ export default function GameJoinPage() {
         />
         <Button
           onClick={handleJoin}
-          variant="jeopardy"
+          variant="brand"
           className="w-full h-14 text-xl"
         >
           Join Game

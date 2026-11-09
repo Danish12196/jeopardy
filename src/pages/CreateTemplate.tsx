@@ -125,7 +125,7 @@ export default function CreateTemplate() {
                               onClick={() => toggleCategory(cat.id)}
                               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                                   selectedCategories.includes(cat.id)
-                                  ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(var(--primary),0.5)]"
+                                  ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(255,90,31,0.35)]"
                                   : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50"
                               }`}
                           >
@@ -190,7 +190,7 @@ export default function CreateTemplate() {
           <Button
             onClick={createTemplate}
             disabled={loading}
-            variant="jeopardy"
+            variant="brand"
             className="w-full py-6 text-lg mt-4"
           >
               {loading ? "Creating..." : "Save Template"}

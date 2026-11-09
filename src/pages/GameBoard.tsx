@@ -162,7 +162,7 @@ export default function GameBoard() {
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 layout
-                className="bg-card/80 backdrop-blur-md border-2 border-primary/50 rounded-xl px-4 md:px-8 py-2 md:py-4 text-center shadow-lg w-32 md:w-48 transition-colors"
+                className="bg-card/80 backdrop-blur-md border-2 border-accent/40 rounded-xl px-4 md:px-8 py-2 md:py-4 text-center shadow-lg w-32 md:w-48 transition-colors"
             >
                 <h2 className="font-bold text-lg md:text-2xl mb-1 md:mb-2 truncate text-foreground" title={team.name}>{team.name}</h2>
                 <motion.p
@@ -171,7 +171,7 @@ export default function GameBoard() {
                     animate={{ y: 0, opacity: 1 }}
                     className="text-accent text-2xl md:text-4xl font-mono font-bold"
                 >
-                    ${team.score}
+                    {team.score}
                 </motion.p>
             </motion.div>
             ))}
@@ -220,8 +220,8 @@ export default function GameBoard() {
                         animate={{ rotateY: isUsed ? 180 : 0 }}
                     >
                         {/* Front of tile */}
-                        <div className={`absolute inset-0 backface-hidden flex items-center justify-center p-4 text-3xl md:text-5xl font-bold font-mono shadow-inner shadow-black/30 bg-primary text-accent`}>
-                            ${value}
+                        <div className={`absolute inset-0 backface-hidden flex items-center justify-center p-4 text-3xl md:text-5xl font-bold font-mono shadow-inner shadow-black/30 bg-tile text-accent`}>
+                            {value}
                         </div>
                         {/* Back of tile (Empty/Used state) */}
                         <div className={`absolute inset-0 backface-hidden rotate-y-180 flex items-center justify-center bg-card/20 text-muted-foreground`}>
@@ -239,7 +239,7 @@ export default function GameBoard() {
             animate={{ rotateY: 0, opacity: 1, scale: 1 }}
             exit={{ rotateY: 90, opacity: 0, scale: 0.5 }}
             transition={{ type: "spring", damping: 15, stiffness: 100 }}
-            className="w-full max-w-5xl aspect-video bg-primary/95 border-8 border-accent rounded-3xl shadow-[0_0_100px_rgba(var(--accent),0.3)] flex flex-col items-center justify-center p-8 md:p-16 text-center transform-style-3d relative overflow-hidden backdrop-blur-xl"
+            className="w-full max-w-5xl aspect-video bg-tile/95 border-8 border-accent rounded-3xl shadow-[0_0_100px_rgba(255,90,31,0.3)] flex flex-col items-center justify-center p-8 md:p-16 text-center transform-style-3d relative overflow-hidden backdrop-blur-xl"
           >
             {/* Background decorative gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent pointer-events-none" />
@@ -282,7 +282,7 @@ export default function GameBoard() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className="text-4xl md:text-7xl font-bold leading-tight md:leading-tight mb-8 z-10 text-primary-foreground drop-shadow-xl"
+                        className="text-4xl md:text-7xl font-bold leading-tight md:leading-tight mb-8 z-10 text-foreground drop-shadow-xl"
                     >
                     {activeQuestion.question}
                     </motion.h1>

@@ -266,7 +266,7 @@ export default function AddBulkQuestionForm() {
         <Button onClick={addRow} variant="secondary" className="sm:w-48 font-bold border-2 border-transparent hover:border-border">
             + Add Row
         </Button>
-        <Button onClick={handleSubmitAll} variant="jeopardy" className="flex-1">
+        <Button onClick={handleSubmitAll} variant="brand" className="flex-1">
           Save All Valid Questions
         </Button>
       </div>

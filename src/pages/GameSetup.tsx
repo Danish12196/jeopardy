@@ -63,7 +63,7 @@ export default function GameSetup() {
         animate={{ opacity: 1, y: 0 }}
         className="text-4xl font-bold mb-8 text-accent drop-shadow-md text-center md:text-left"
       >
-        Jeopardy Game Setup
+        Lockout Game Setup
       </motion.h1>
 
       <motion.div
@@ -85,7 +85,7 @@ export default function GameSetup() {
               className="md:max-w-sm"
               onKeyDown={(e) => e.key === 'Enter' && createTeam()}
             />
-            <Button onClick={createTeam} variant="jeopardy">Add Team</Button>
+            <Button onClick={createTeam} variant="brand">Add Team</Button>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -102,7 +102,7 @@ export default function GameSetup() {
                     onClick={() => toggleTeam(t.id)}
                     className={`px-6 py-3 rounded-xl border-2 font-bold transition-all ${
                         selectedTeams.includes(t.id)
-                        ? "bg-green-600 border-green-400 text-white shadow-[0_0_15px_rgba(74,222,128,0.4)]"
+                        ? "bg-accent border-accent text-accent-foreground shadow-[0_0_15px_rgba(255,90,31,0.4)]"
                         : "bg-secondary border-border/50 text-secondary-foreground hover:border-primary/50"
                     }`}
                 >

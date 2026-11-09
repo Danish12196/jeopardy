@@ -3,6 +3,26 @@ import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 
+// Storage key for the team a phone picked. Older builds (before the Lockout
+// rebrand) used the "jeopardy-" prefix, so we read that once and migrate it.
+const teamKey = (id?: string) => `lockout-buzzer-team-${id}`;
+const legacyTeamKey = (id?: string) => `jeopardy-buzzer-team-${id}`;
+
+function loadSavedTeam(id?: string): string | null {
+  try {
+    const current = localStorage.getItem(teamKey(id));
+    if (current) return current;
+    const legacy = localStorage.getItem(legacyTeamKey(id));
+    if (legacy) {
+      localStorage.setItem(teamKey(id), legacy);
+      localStorage.removeItem(legacyTeamKey(id));
+    }
+    return legacy;
+  } catch {
+    return null;
+  }
+}
+
 export default function BuzzerPage() {
   const { uniqueID } = useParams();
 
@@ -13,7 +33,7 @@ export default function BuzzerPage() {
 
   useEffect(() => {
     // Attempt to restore team selection from local storage
-    const savedTeamId = localStorage.getItem(`jeopardy-buzzer-team-${uniqueID}`);
+    const savedTeamId = loadSavedTeam(uniqueID);
     if (savedTeamId) setSelectedTeamId(savedTeamId);
 
     const fetchGame = async () => {
@@ -63,7 +83,7 @@ export default function BuzzerPage() {
 
   const selectTeam = (teamId: string) => {
     setSelectedTeamId(teamId);
-    localStorage.setItem(`jeopardy-buzzer-team-${uniqueID}`, teamId);
+    try { localStorage.setItem(teamKey(uniqueID), teamId); } catch { /* storage unavailable */ }
   };
 
   const handleBuzz = async () => {
@@ -146,7 +166,10 @@ export default function BuzzerPage() {
         <button
           onClick={() => {
             setSelectedTeamId(null);
-            localStorage.removeItem(`jeopardy-buzzer-team-${uniqueID}`);
+            try {
+              localStorage.removeItem(teamKey(uniqueID));
+              localStorage.removeItem(legacyTeamKey(uniqueID));
+            } catch { /* storage unavailable */ }
           }}
           className="text-sm bg-secondary/80 px-4 py-2 rounded-lg hover:bg-secondary font-semibold transition-colors"
         >
@@ -161,7 +184,7 @@ export default function BuzzerPage() {
           disabled={buzzerState !== "unlocked"}
           animate={
               buzzerState === "unlocked"
-                ? { scale: [1, 1.05, 1], boxShadow: ["0px 0px 20px rgba(var(--destructive), 0.4)", "0px 0px 60px rgba(var(--destructive), 0.8)", "0px 0px 20px rgba(var(--destructive), 0.4)"] }
+                ? { scale: [1, 1.05, 1], boxShadow: ["0px 0px 20px rgba(255, 90, 31, 0.4)", "0px 0px 60px rgba(255, 90, 31, 0.8)", "0px 0px 20px rgba(255, 90, 31, 0.4)"] }
                 : buzzerState === "buzzed"
                 ? { scale: 1.1, rotate: [0, -5, 5, -5, 0], transition: { duration: 0.5 } }
                 : { scale: 1 }
@@ -171,7 +194,7 @@ export default function BuzzerPage() {
           className={`
             w-64 h-64 md:w-80 md:h-80 rounded-full text-4xl md:text-5xl font-bold uppercase tracking-wider transition-all duration-200 shadow-2xl relative
             ${buzzerState === "unlocked"
-                ? "bg-destructive text-destructive-foreground hover:brightness-110 cursor-pointer border-8 border-background/20"
+                ? "bg-accent text-accent-foreground hover:brightness-110 cursor-pointer border-8 border-background/20"
                 : buzzerState === "buzzed"
                 ? "bg-green-500 text-white shadow-green-500/50 border-8 border-green-700 cursor-default"
                 : "bg-muted text-muted-foreground border-8 border-background/10 cursor-not-allowed opacity-80"}
@@ -189,12 +212,12 @@ export default function BuzzerPage() {
            <AnimatePresence mode="wait">
                {buzzerState === "unlocked" && (
                    <motion.p key="unlocked" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-2xl font-bold text-accent drop-shadow-lg">
-                       Ready! Tap to Buzz.
+                       Open! Tap to buzz.
                    </motion.p>
                )}
                {buzzerState === "locked" && (
                    <motion.p key="locked" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xl text-muted-foreground">
-                       Waiting for host...
+                       Locked. Waiting for the host.
                    </motion.p>
                )}
                {buzzerState === "buzzed" && (
@@ -204,7 +227,7 @@ export default function BuzzerPage() {
                )}
                {buzzerState === "too-late" && (
                    <motion.p key="too-late" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xl text-muted-foreground">
-                       Someone else buzzed in.
+                       Locked. Someone else got in first.
                    </motion.p>
                )}
            </AnimatePresence>
