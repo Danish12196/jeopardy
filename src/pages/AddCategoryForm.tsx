@@ -71,7 +71,7 @@ export default function AddCategoryForm() {
           </div>
       </div>
 
-      <Button onClick={handleSubmit} variant="jeopardy" className="w-full h-14 text-lg">Add Category</Button>
+      <Button onClick={handleSubmit} variant="brand" className="w-full h-14 text-lg">Add Category</Button>
 
       <AnimatePresence>
           {success && (

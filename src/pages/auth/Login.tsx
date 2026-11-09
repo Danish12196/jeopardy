@@ -31,7 +31,8 @@ export default function Login() {
       >
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
 
-        <h1 className="text-4xl font-bold mb-8 text-accent text-center drop-shadow-md tracking-wider uppercase relative z-10">Jeopardy</h1>
+        <h1 className="text-5xl font-black text-accent text-center drop-shadow-md tracking-wider uppercase relative z-10">Lockout</h1>
+        <p className="mt-2 mb-8 text-center text-muted-foreground font-semibold tracking-wide relative z-10">Buzz first or sit it out.</p>
         <form onSubmit={handleLogin} className="flex flex-col gap-6 relative z-10">
           <div className="space-y-4">
               <Input
@@ -65,7 +66,7 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          <Button type="submit" variant="jeopardy" className="w-full h-14 text-lg">
+          <Button type="submit" variant="brand" className="w-full h-14 text-lg">
             Login
           </Button>
         </form>
@@ -84,7 +85,7 @@ export default function Login() {
 
         <div className="mt-8 text-center text-sm text-muted-foreground relative z-10">
           Don't have an account?{" "}
-          <Link to="/register" className="text-accent font-bold hover:underline transition-all hover:text-yellow-300">
+          <Link to="/register" className="text-accent font-bold hover:underline transition-all hover:text-accent/80">
             Sign up
           </Link>
         </div>

@@ -261,10 +261,10 @@ export default function GameHost() {
                     whileTap={!isUsed ? { scale: 0.95 } : {}}
                     onClick={() => !isUsed && q && selectQuestion(row, col, value, q)}
                     className={`flex items-center justify-center py-6 text-xl font-bold border border-border/50 transition-colors rounded-sm ${
-                      isUsed ? "bg-card/20 text-muted-foreground cursor-not-allowed" : "bg-primary/80 text-accent hover:bg-accent hover:text-accent-foreground shadow-md cursor-pointer"
+                      isUsed ? "bg-card/20 text-muted-foreground cursor-not-allowed" : "bg-tile text-accent hover:bg-accent hover:text-accent-foreground shadow-md cursor-pointer"
                     }`}
                   >
-                    ${value}
+                    {value}
                   </motion.button>
                 );
               })}
@@ -279,7 +279,7 @@ export default function GameHost() {
             >
               <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
 
-              <h2 className="text-3xl font-bold mb-4 text-accent drop-shadow-sm z-10">${selectedTile.value} - <span className="text-foreground">{categories[selectedTile.col]}</span></h2>
+              <h2 className="text-3xl font-bold mb-4 text-accent drop-shadow-sm z-10">{selectedTile.value} pts - <span className="text-foreground">{categories[selectedTile.col]}</span></h2>
               <div className="text-2xl mb-6 bg-background/50 p-6 rounded-xl border border-border/50 shadow-inner z-10 font-medium leading-relaxed">
                   {selectedTile.questionData.question}
               </div>
@@ -303,7 +303,7 @@ export default function GameHost() {
                       )}
 
                       <Button
-                          variant="jeopardy"
+                          variant="brand"
                           onClick={revealAnswerLocal}
                           className="h-14 text-lg"
                       >
@@ -348,18 +348,18 @@ export default function GameHost() {
                 <h3 className="text-2xl font-bold flex items-center gap-2"><span className="text-accent">⚡</span> Buzzer Controls</h3>
                 <label className="flex items-center gap-3 text-sm bg-background/50 px-4 py-2 rounded-lg cursor-pointer hover:bg-background/80 transition-colors border border-border/50">
                     <input type="checkbox" checked={autoUnlock} onChange={(e) => setAutoUnlock(e.target.checked)} className="accent-accent w-4 h-4 cursor-pointer" />
-                    <span className="font-semibold">Auto-unlock on Select</span>
+                    <span className="font-semibold">Auto-open on select</span>
                 </label>
             </div>
 
             <div className="flex gap-4 mb-6">
                 {game.buzzerUnlocked ? (
-                <Button onClick={() => toggleBuzzer(false)} variant="destructive" className="flex-1 h-14 text-lg font-bold shadow-[0_0_15px_rgba(var(--destructive),0.5)] animate-pulse">
-                    LOCK Buzzers
+                <Button onClick={() => toggleBuzzer(false)} variant="secondary" className="flex-1 h-14 text-lg font-bold border-2 border-accent/60 animate-pulse">
+                    Lock buzzers
                 </Button>
                 ) : (
-                <Button onClick={() => toggleBuzzer(true)} className="flex-1 h-14 text-lg font-bold bg-green-600 hover:bg-green-500 text-white shadow-[0_0_15px_rgba(74,222,128,0.3)]">
-                    UNLOCK Buzzers
+                <Button onClick={() => toggleBuzzer(true)} variant="brand" className="flex-1 h-14 text-lg">
+                    Open buzzers
                 </Button>
                 )}
                 <Button onClick={clearBuzzers} variant="secondary" className="flex-1 h-14 text-lg font-bold border-2 border-border/50">
@@ -430,7 +430,7 @@ export default function GameHost() {
                         animate={{ scale: 1, color: "var(--accent)" }}
                         className="text-accent font-mono text-2xl font-bold mt-1"
                     >
-                        ${team.score}
+                        {team.score}
                     </motion.div>
                   </div>
                   <div className="flex gap-3 shrink-0">

@@ -1,4 +1,4 @@
-// Creates or updates the PocketBase collections the Jeopardy app needs.
+// Creates or updates the PocketBase collections the Lockout app needs.
 // Targets PocketBase v0.23+ (superusers, `fields` schema, batch API).
 //
 // Usage (from the repo root, any machine with Node 18+):
