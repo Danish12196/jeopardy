@@ -50,21 +50,29 @@ const TEAM_RULES = {
   viewRule: "",
 };
 
-// Guests on the buzzer page may only add themselves to buzzerQueue, and only
-// while the host has the buzzers unlocked. Every other field needs a login.
-const HOST_ONLY_GAME_FIELDS = [
-  "title", "uniqueID", "template", "teams", "categories", "values", "teamScores",
-  "answeredQuestions", "currentActiveQuestion", "currentActiveTeam", "showAnswer", "buzzerUnlocked", "hostForceShowQuestion"
-];
-const GUEST_BUZZ =
-  "buzzerUnlocked = true && " +
-  HOST_ONLY_GAME_FIELDS.map((f) => `@request.body.${f}:isset = false`).join(" && ");
+// Games: anyone can read (the TV board and phones aren't logged in). Guests
+// can't write to a game at all; phones buzz by creating a `buzzes` record.
+// `buzzerQueue` is kept (read-only, no longer written) for one release so
+// old clients don't crash.
 const GAME_RULES = {
   listRule: "",
   viewRule: "",
   createRule: LOGGED_IN,
   deleteRule: LOGGED_IN,
-  updateRule: `${LOGGED_IN} || (${GUEST_BUZZ})`
+  updateRule: LOGGED_IN,
+};
+
+// Buzzes: one record per team per buzz round. Anyone can create one, but
+// only while the game's buzzers are open, only for the game's current round,
+// and only for a team that is in that game. The server sets `created`, which
+// decides the order. Nobody but a superuser can change or delete a buzz.
+const BUZZ_RULES = {
+  listRule: "",
+  viewRule: "",
+  createRule:
+    "game.buzzerUnlocked = true && round = game.buzzRound && game.teams.id ?= team",
+  updateRule: null,
+  deleteRule: null,
 };
 
 const timestamps = [
@@ -72,12 +80,12 @@ const timestamps = [
   { name: "updated", type: "autodate", onCreate: true, onUpdate: true },
 ];
 
-const relation = (name, target, { single = false, required = false } = {}) => ({
+const relation = (name, target, { single = false, required = false, cascade = false } = {}) => ({
   name,
   type: "relation",
   required,
   collectionId: `@${target}`, // resolved to a real id below
-  cascadeDelete: false,
+  cascadeDelete: cascade,
   minSelect: 0,
   maxSelect: single ? 1 : 999,
 });
@@ -90,7 +98,7 @@ const COLLECTIONS = [
       listRule: "",
       viewRule: "",
       createRule: "",
-      updateRule: "id = @request.auth.id && @request.data.isSuperuser:isset = false",
+      updateRule: "id = @request.auth.id && @request.body.isSuperuser:isset = false",
       deleteRule: "id = @request.auth.id",
     },
     fields: [
@@ -161,9 +169,27 @@ const COLLECTIONS = [
       { name: "showAnswer", type: "bool" },
       { name: "buzzerUnlocked", type: "bool" },
       { name: "hostForceShowQuestion", type: "bool" },
+      // Goes up by one each time the host opens, resets or moves on from the
+      // buzzers. Buzzes from an older round are ignored and can't be created.
+      { name: "buzzRound", type: "number", onlyInt: true },
+    ],
+  },
+  {
+    name: "buzzes",
+    rules: BUZZ_RULES,
+    fields: [
+      relation("game", "games", { single: true, required: true, cascade: true }),
+      relation("team", "teams", { single: true, required: true, cascade: true }),
+      { name: "round", type: "number", onlyInt: true },
+    ],
+    indexes: [
+      "CREATE UNIQUE INDEX `idx_buzzes_game_round_team` ON `buzzes` (`game`, `round`, `team`)",
     ],
   },
 ];
+
+// Index name from a CREATE INDEX statement, used to tell which ones exist.
+const indexName = (sql) => sql.match(/INDEX\s+(?:IF NOT EXISTS\s+)?`?([\w]+)`?/i)?.[1];
 
 const ids = {}; // collection name -> id
 
@@ -206,7 +232,13 @@ async function upsert(def) {
       ids[def.name] = `<new:${def.name}>`;
       return;
     }
-    const created = await pb.collections.create({ name: def.name, type: "base", fields: desired, ...def.rules });
+    const created = await pb.collections.create({
+      name: def.name,
+      type: "base",
+      fields: desired,
+      indexes: def.indexes || [],
+      ...def.rules,
+    });
     ids[def.name] = created.id;
     return;
   }
@@ -231,19 +263,26 @@ async function upsert(def) {
     }
   }
 
-  const ruleChanges = SYNC_RULES
-    ? Object.keys(def.rules).filter((k) => existing[k] !== def.rules[k])
-    : [];
+  const differentRules = Object.keys(def.rules).filter((k) => existing[k] !== def.rules[k]);
+  const ruleChanges = SYNC_RULES ? differentRules : [];
+  if (!SYNC_RULES && differentRules.length) {
+    console.warn(`! ${def.name}: ${differentRules.join(", ")} differ from this script (re-run with --sync-rules to apply)`);
+  }
 
-  if (!missing.length && !ruleChanges.length) {
+  const haveIndexes = new Set((existing.indexes || []).map(indexName));
+  const missingIndexes = (def.indexes || []).filter((sql) => !haveIndexes.has(indexName(sql)));
+
+  if (!missing.length && !ruleChanges.length && !missingIndexes.length) {
     console.log(`= ${def.name} already up to date`);
     return;
   }
   if (missing.length) console.log(`~ ${def.name}: add ${missing.map((f) => f.name).join(", ")}`);
+  if (missingIndexes.length) console.log(`~ ${def.name}: add index ${missingIndexes.map(indexName).join(", ")}`);
   if (ruleChanges.length) console.log(`~ ${def.name}: update ${ruleChanges.join(", ")}`);
   if (!DRY_RUN) {
     const patch = {};
     if (missing.length) patch.fields = [...existing.fields, ...missing];
+    if (missingIndexes.length) patch.indexes = [...(existing.indexes || []), ...missingIndexes];
     for (const k of ruleChanges) patch[k] = def.rules[k];
     await pb.collections.update(existing.id, patch);
   }

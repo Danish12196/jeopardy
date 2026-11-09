@@ -4,6 +4,8 @@ import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 import useSound from "use-sound";
+import { useBuzzes } from "@/hooks/useBuzzes";
+import { buzzGap } from "@/lib/buzzes";
 
 // You can replace this with a valid sound URL if you prefer.
 // A simple beep data URI for the buzzer sound.
@@ -27,7 +29,8 @@ export default function GameBoard() {
   const [activeQuestion, setActiveQuestion] = useState<any | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
-  const [buzzerQueue, setBuzzerQueue] = useState<any[]>([]);
+  const [buzzRound, setBuzzRound] = useState(0);
+  const buzzerQueue = useBuzzes(gameId ?? undefined, buzzRound);
   const [hostForceShowQuestion, setHostForceShowQuestion] = useState(false);
 
   // Use a generic pop sound for revealing questions/answers (fallback to native browser handling if needed)
@@ -93,9 +96,7 @@ export default function GameBoard() {
         setShowAnswer(g.showAnswer || false);
         setHostForceShowQuestion(g.hostForceShowQuestion || false);
 
-        const queue = g.buzzerQueue || [];
-        setBuzzerQueue(queue);
-        lastBuzzerCountRef.current = queue.length;
+        setBuzzRound(g.buzzRound ?? 0);
 
       } catch (err) {
         console.error("Board fetch error:", err);
@@ -116,14 +117,7 @@ export default function GameBoard() {
         setShowAnswer(g.showAnswer || false);
         setHostForceShowQuestion(g.hostForceShowQuestion || false);
 
-        const newQueue = g.buzzerQueue || [];
-        setBuzzerQueue(newQueue);
-
-        // Play sound if someone new buzzed in
-        if (newQueue.length > lastBuzzerCountRef.current) {
-            try { playBuzzer(); } catch(e) { console.warn("Failed to play buzzer sound", e); }
-        }
-        lastBuzzerCountRef.current = newQueue.length;
+        setBuzzRound(g.buzzRound ?? 0);
 
         setTeams((prev) =>
           prev.map((t) => ({
@@ -149,7 +143,15 @@ export default function GameBoard() {
     return () => {
       pb.collection("games").unsubscribe(gameId);
     };
-  }, [gameId, playBuzzer]);
+  }, [gameId]);
+
+  // Play a sound when someone new buzzes in.
+  useEffect(() => {
+    if (buzzerQueue.length > lastBuzzerCountRef.current) {
+      try { playBuzzer(); } catch (e) { console.warn("Failed to play buzzer sound", e); }
+    }
+    lastBuzzerCountRef.current = buzzerQueue.length;
+  }, [buzzerQueue.length, playBuzzer]);
 
   return (
     <div className="min-h-screen flex flex-col p-4 md:p-8 overflow-hidden bg-background bg-animated-gradient">
@@ -254,7 +256,7 @@ export default function GameBoard() {
                         className="absolute top-8 bg-destructive text-destructive-foreground px-6 md:px-10 py-3 md:py-4 rounded-full text-2xl md:text-4xl font-bold shadow-2xl z-20 flex items-center gap-4 border-4 border-background"
                      >
                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-20 -left-0 -top-0"></span>
-                         🎤 {teams.find(t => t.id === buzzerQueue[0].teamId)?.name} buzzed in!
+                         🎤 {teams.find(t => t.id === buzzerQueue[0].team)?.name} buzzed in!
                      </motion.div>
                  )}
              </AnimatePresence>
@@ -263,13 +265,13 @@ export default function GameBoard() {
                  <div className="absolute top-1/4 mt-8 md:mt-12 text-white/80 text-sm md:text-lg z-10 flex flex-col gap-1">
                     {buzzerQueue.length > 1 && buzzerQueue.slice(1).map((q, idx) => (
                         <motion.div
-                            key={idx}
+                            key={q.id}
                             initial={{ x: -20, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             transition={{ delay: idx * 0.1 }}
                             className="bg-black/40 px-4 py-1 rounded-full backdrop-blur-sm"
                         >
-                            {teams.find(t => t.id === q.teamId)?.name} (+{((q.time - buzzerQueue[0].time) / 1000).toFixed(2)}s)
+                            {teams.find(t => t.id === q.team)?.name} ({buzzGap(buzzerQueue, idx + 1)})
                         </motion.div>
                     ))}
                  </div>

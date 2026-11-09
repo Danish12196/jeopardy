@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
+import { useBuzzes } from "@/hooks/useBuzzes";
+import { buzzPosition } from "@/lib/buzzes";
 
 // Storage key for the team a phone picked. Older builds (before the Lockout
 // rebrand) used the "jeopardy-" prefix, so we read that once and migrate it.
@@ -29,7 +31,12 @@ export default function BuzzerPage() {
   const [game, setGame] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [hasBuzzedLocally, setHasBuzzedLocally] = useState(false);
+  // The round this phone tapped in, until the server confirms or rejects it.
+  const [pendingRound, setPendingRound] = useState<number | null>(null);
+  const [rejectedRound, setRejectedRound] = useState<number | null>(null);
+
+  const round = game?.buzzRound ?? 0;
+  const buzzQueue = useBuzzes(game?.id, round);
 
   useEffect(() => {
     // Attempt to restore team selection from local storage
@@ -63,15 +70,7 @@ export default function BuzzerPage() {
 
     const sub = async () => {
       await pb.collection("games").subscribe(game.id, (event) => {
-        const updatedGame = event.record;
-        setGame(updatedGame);
-
-        // Reset local buzz state if the host unlocked the buzzers or cleared the queue
-        if (updatedGame.buzzerUnlocked) {
-            setHasBuzzedLocally(false);
-        } else if (!updatedGame.buzzerQueue || updatedGame.buzzerQueue.length === 0) {
-            setHasBuzzedLocally(false);
-        }
+        setGame(event.record);
       });
     };
     sub();
@@ -86,35 +85,27 @@ export default function BuzzerPage() {
     try { localStorage.setItem(teamKey(uniqueID), teamId); } catch { /* storage unavailable */ }
   };
 
+  const myPosition = selectedTeamId ? buzzPosition(buzzQueue, selectedTeamId) : 0;
+  const pending = pendingRound === round && !myPosition;
+  const rejected = rejectedRound === round;
+
   const handleBuzz = async () => {
-    if (!game || !selectedTeamId || !game.buzzerUnlocked || hasBuzzedLocally) return;
+    if (!game || !selectedTeamId || !game.buzzerUnlocked || pending || myPosition) return;
 
-    // Immediately show feedback
-    setHasBuzzedLocally(true);
-    const buzzTime = Date.now();
-
-    // Attempt to trigger native vibration
-    if (navigator.vibrate) {
-        navigator.vibrate(100);
-    }
+    // Instant feedback; the server decides the order.
+    setPendingRound(round);
+    setRejectedRound(null);
+    if (navigator.vibrate) navigator.vibrate(100);
 
     try {
-        // Fetch latest game state to avoid race conditions with other players as much as possible
-        const latestGame = await pb.collection("games").getOne(game.id);
-        const currentQueue = latestGame.buzzerQueue || [];
-
-        if (!currentQueue.find((q: any) => q.teamId === selectedTeamId)) {
-            const newQueue = [...currentQueue, { teamId: selectedTeamId, time: buzzTime }];
-            // Sort just in case
-            newQueue.sort((a, b) => a.time - b.time);
-
-            await pb.collection("games").update(game.id, {
-                buzzerQueue: newQueue
-            });
-        }
-    } catch (err) {
-        console.error("Failed to buzz in:", err);
-        setHasBuzzedLocally(false); // Revert on failure
+      // No client time is sent: PocketBase stamps `created` when it saves.
+      await pb.collection("buzzes").create({ game: game.id, team: selectedTeamId, round });
+    } catch (err: any) {
+      // A 400 for a team that already buzzed this round is fine: the queue
+      // shows it. Anything else means the buzzers closed or the round moved on.
+      console.warn("Buzz not accepted:", err?.status, err?.response);
+      setPendingRound(null);
+      setRejectedRound(round);
     }
   };
 
@@ -149,13 +140,11 @@ export default function BuzzerPage() {
   // Determine buzzer state
   let buzzerState: "locked" | "unlocked" | "buzzed" | "too-late" = "locked";
 
-  const queueEntry = (game.buzzerQueue || []).find((q: any) => q.teamId === selectedTeamId);
-
-  if (game.buzzerUnlocked) {
-      buzzerState = "unlocked";
-  } else if (queueEntry) {
+  if (myPosition || pending) {
       buzzerState = "buzzed";
-  } else if (game.buzzerQueue?.length > 0) {
+  } else if (game.buzzerUnlocked) {
+      buzzerState = "unlocked";
+  } else if (buzzQueue.length > 0) {
       buzzerState = "too-late";
   }
 
@@ -203,7 +192,7 @@ export default function BuzzerPage() {
           <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
 
           {buzzerState === "unlocked" && "BUZZ"}
-          {buzzerState === "buzzed" && "BUZZED!"}
+          {buzzerState === "buzzed" && (myPosition ? `Buzzed #${myPosition}` : "Buzzed!")}
           {buzzerState === "locked" && "LOCKED"}
           {buzzerState === "too-late" && "LOCKED"}
         </motion.button>
@@ -217,12 +206,12 @@ export default function BuzzerPage() {
                )}
                {buzzerState === "locked" && (
                    <motion.p key="locked" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-xl text-muted-foreground">
-                       Locked. Waiting for the host.
+                       {rejected ? "Locked. That buzz didn't count." : "Locked. Waiting for the host."}
                    </motion.p>
                )}
                {buzzerState === "buzzed" && (
                    <motion.p key="buzzed" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="text-2xl text-green-400 font-bold drop-shadow-md">
-                       You are in the queue!
+                       {myPosition === 1 ? "You're first!" : myPosition ? `You're #${myPosition} in the queue.` : "Sending your buzz..."}
                    </motion.p>
                )}
                {buzzerState === "too-late" && (

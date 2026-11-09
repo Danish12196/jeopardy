@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import pb from "@/pb";
+import { useBuzzes } from "@/hooks/useBuzzes";
+import { buzzGap, buzzPosition } from "@/lib/buzzes";
 
 export default function GameHost() {
   const { uniqueID } = useParams();
@@ -23,6 +25,9 @@ export default function GameHost() {
 
   const [showAnswerLocal, setShowAnswerLocal] = useState(false);
   const [autoUnlock, setAutoUnlock] = useState(true);
+
+  // Server-ordered buzzes for the current round.
+  const buzzQueue = useBuzzes(game?.id, game?.buzzRound ?? 0);
 
   // Layout calculations
   const cols = Math.max(categories.length, 1);
@@ -78,7 +83,6 @@ export default function GameHost() {
             id: t.id,
             name: t.name,
             score: g.teamScores?.find((ts: any) => ts.id === t.id)?.score || 0,
-            hasBuzzed: g.buzzerQueue?.some((q: any) => q.teamId === t.id) || false,
           }))
         );
 
@@ -123,7 +127,6 @@ export default function GameHost() {
           prevTeams.map((t) => ({
             ...t,
             score: updatedGame.teamScores?.find((ts: any) => ts.id === t.id)?.score ?? t.score,
-            hasBuzzed: updatedGame.buzzerQueue?.some((q: any) => q.teamId === t.id) || false,
           }))
         );
       });
@@ -144,7 +147,7 @@ export default function GameHost() {
         currentActiveQuestion: questionData.id,
         showAnswer: false,
         buzzerUnlocked: autoUnlock,
-        buzzerQueue: [],
+        "buzzRound+": 1, // new round: earlier buzzes no longer count
         hostForceShowQuestion: false
       });
     }
@@ -157,7 +160,7 @@ export default function GameHost() {
         currentActiveQuestion: null,
         showAnswer: false,
         buzzerUnlocked: false,
-        buzzerQueue: [],
+        "buzzRound+": 1,
         answeredQuestions: updatedUsed,
         hostForceShowQuestion: false
       });
@@ -169,7 +172,8 @@ export default function GameHost() {
     if (game?.id) {
       await pb.collection("games").update(game.id, {
         buzzerUnlocked: unlock,
-        ...(unlock ? { buzzerQueue: [] } : {})
+        // Opening starts a fresh round; locking keeps the queue on screen.
+        ...(unlock ? { "buzzRound+": 1 } : {})
       });
     }
   };
@@ -200,7 +204,7 @@ export default function GameHost() {
   const clearBuzzers = async () => {
     if (game?.id) {
       await pb.collection("games").update(game.id, {
-        buzzerQueue: []
+        "buzzRound+": 1
       });
     }
   };
@@ -292,7 +296,7 @@ export default function GameHost() {
 
               {!showAnswerLocal ? (
                   <div className="flex flex-col gap-3 mb-6 z-10">
-                      {game.buzzerQueue?.length > 0 && (
+                      {buzzQueue.length > 0 && (
                           <Button
                             variant="secondary"
                             onClick={forceShowQuestion}
@@ -369,22 +373,21 @@ export default function GameHost() {
 
             <div className="bg-background/40 p-4 rounded-xl border border-border/40 shadow-inner min-h-[120px]">
                 <h4 className="font-bold mb-3 text-muted-foreground uppercase text-xs tracking-wider">Buzz Queue (First to Last)</h4>
-                {game.buzzerQueue?.length > 0 ? (
-                <ol className="list-decimal list-inside space-y-2">
+                {buzzQueue.length > 0 ? (
+                <ol className="list-decimal list-inside space-y-2" data-testid="host-buzz-queue">
                     <AnimatePresence>
-                    {game.buzzerQueue.map((q: any, idx: number) => {
-                        const t = teams.find(t => t.id === q.teamId);
-                        const timeDiff = idx === 0 ? 0 : (q.time - game.buzzerQueue[0].time) / 1000;
+                    {buzzQueue.map((q, idx) => {
+                        const t = teams.find(t => t.id === q.team);
 
                         return (
                         <motion.li
-                            key={q.teamId}
+                            key={q.id}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, height: 0 }}
                             className={`text-lg p-2 rounded-lg ${idx === 0 ? 'bg-green-900/30 text-green-400 font-bold border border-green-500/30' : 'text-foreground/80'}`}
                         >
-                            {t?.name || q.teamId} {idx > 0 && <span className="text-sm opacity-60 ml-2 font-mono">(+{timeDiff.toFixed(2)}s)</span>}
+                            {t?.name || q.team} {idx > 0 && <span className="text-sm opacity-60 ml-2 font-mono">({buzzGap(buzzQueue, idx)})</span>}
                         </motion.li>
                         );
                     })}
@@ -410,7 +413,7 @@ export default function GameHost() {
                     key={team.id}
                     layout
                     className={`flex items-center justify-between p-4 rounded-xl border-2 transition-colors ${
-                        game.buzzerQueue?.[0]?.teamId === team.id
+                        buzzQueue[0]?.team === team.id
                         ? 'border-green-500 bg-green-900/10 shadow-[0_0_20px_rgba(74,222,128,0.1)]'
                         : 'border-border/40 bg-background/50'
                     }`}
@@ -418,9 +421,9 @@ export default function GameHost() {
                   <div className="flex-1 min-w-0 pr-4">
                     <div className="font-bold text-lg flex items-center gap-3 truncate">
                       <span className="truncate">{team.name}</span>
-                      {game.buzzerQueue?.some((q: any) => q.teamId === team.id) && (
+                      {buzzPosition(buzzQueue, team.id) > 0 && (
                         <span className="text-xs bg-accent text-accent-foreground px-2 py-1 rounded-full whitespace-nowrap shadow-sm font-bold">
-                          Buzz #{game.buzzerQueue.findIndex((q: any) => q.teamId === team.id) + 1}
+                          Buzz #{buzzPosition(buzzQueue, team.id)}
                         </span>
                       )}
                     </div>

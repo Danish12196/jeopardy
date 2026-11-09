@@ -87,3 +87,33 @@ export async function hostOpenFirstQuestion(host: Page) {
   await host.getByRole("button", { name: "100", exact: true }).first().click();
   await expect(host.getByText("Answer", { exact: true })).toBeVisible();
 }
+
+/** Creates a game straight through the API as the given user, returns the record. */
+export async function createGameViaApi(pb: PocketBase, teamNames: string[] = TEAMS) {
+  const teams = await pb.collection("teams").getFullList({ filter: pb.filter("user = {:u}", { u: pb.authStore.record!.id }) });
+  const ids = teamNames.map((n) => teams.find((t) => t.name === n)!.id);
+  const template = await pb.collection("game_templates").getFirstListItem(pb.filter("title = {:t}", { t: TEMPLATE_TITLE }));
+  const code = `T${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  return pb.collection("games").create({
+    title: `Game: ${TEMPLATE_TITLE}`,
+    uniqueID: code,
+    template: template.id,
+    teams: ids,
+    teamScores: ids.map((id) => ({ id, score: 0 })),
+    answeredQuestions: [],
+    buzzRound: 0,
+    buzzerUnlocked: false,
+  });
+}
+
+/** Expects a PocketBase call to be refused (any 4xx). */
+export async function expectRejected(p: Promise<unknown>) {
+  let status = 0;
+  try {
+    await p;
+  } catch (err: any) {
+    status = err?.status ?? -1;
+  }
+  expect(status, "request should have been rejected").toBeGreaterThanOrEqual(400);
+  expect(status).toBeLessThan(500);
+}

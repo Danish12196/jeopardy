@@ -99,7 +99,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         values,
         teamScores: selectedTeams.map((t) => ({ id: t, score: 0 })),
         answeredQuestions: [],
-        buzzerQueue: [],
+        buzzRound: 0,
         showAnswer: false,
         buzzerUnlocked: false,
         hostForceShowQuestion: false
