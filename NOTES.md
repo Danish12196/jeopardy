@@ -1,7 +1,40 @@
 # Lockout v2 notes
 
-Working notes for the `v2` branch. The final summary, skipped items and the
-production upgrade steps are filled in at the end.
+Everything from the v2 brief is done; nothing was skipped. Phases 1 to 7
+each have their own commit on `v2`.
+
+`npm run build`, `npm run lint`, `npm test` (21 unit tests) and
+`npm run e2e` (19 E2E tests plus the opt-in screenshot run) pass.
+
+## Production upgrade, in this order
+
+Do this when no game is being played. Between steps 3 and 5 the old site
+can't buzz or start games (guest writes and host-less games are refused).
+
+1. **Back up** PocketBase (copy `pb_data`, or a backup from the admin UI).
+2. **Dry run** from the `v2` checkout:
+   ```bash
+   PB_URL=https://pb.danishali.dev PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD='...' \
+     node scripts/init-db.mjs --dry-run --sync-rules
+   ```
+   Expect: `+ create buzzes`, `+ create wagers`, `~ games: add host,
+   buzzRound, scoreHistory, wildcards, wildcard, allInPhase, allIn,
+   gameOver`, rule updates on every collection, `set host on N existing
+   game(s)`, and possibly a `!` line listing games with no template owner.
+3. **Real run** (same command without `--dry-run`). `--sync-rules` is
+   required: without it the new rules aren't applied to existing
+   collections and the old guest write access stays.
+4. Run it once more; every collection should say `already up to date`.
+5. **Deploy** the frontend: merge the PR to `main` so Vercel builds it.
+6. Smoke test: log in, start a game, open the TV and a phone, buzz.
+
+One release later, the deprecated `games.buzzerQueue` and
+`users.isSuperuser` fields can be removed in the admin UI.
+
+## Skipped
+Nothing. Small calls I made are under Open questions.
+
+## Done
 
 ## Done
 
@@ -85,6 +118,14 @@ All five done. Names follow the Lockout brand: **Wildcard** and **All In**.
 5. **Game over**: "Show final standings" (after All In) or "End game"
    (any time) sets `games.gameOver`; the TV shows final standings and phones
    show their place.
+
+### Phase 7: wrap-up
+- README rewritten: features, tests, database upgrades, how the buzzer
+  works. "UNDER CONSTRUCTION" removed.
+- Re-took the portfolio screenshots that changed (01-setup, 02-host-board,
+  05-host-question-buzz, 08-host-scored, mobile-03, mobile-04) at the same
+  sizes with `SCREENSHOTS=1 npm run e2e -- e2e/screenshots.spec.ts`. The TV
+  and login shots didn't change. The demo videos weren't re-recorded.
 
 ### Phase 6: reconnecting
 - One shared watcher (`src/hooks/useLiveConnection.ts`) listens for the
