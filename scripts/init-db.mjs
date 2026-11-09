@@ -39,9 +39,9 @@ const AUTHOR_RULES = {
   deleteRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
 };
 
-// Teams: you only list your own (the setup page relies on this, since it can't
-// filter on the hidden `user` field), but anyone can view one by id so the TV
-// board and phone buzzers can show team names.
+// Teams: you only list your own (the setup page relies on this rule instead of
+// a client filter), but anyone can view one by id so the TV board and phone
+// buzzers can show team names.
 const TEAM_RULES = {
   ...AUTHOR_RULES,
   listRule: "user = @request.auth.id || @request.auth.isSuperuser = true",
