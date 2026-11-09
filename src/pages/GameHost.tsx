@@ -429,6 +429,7 @@ export default function GameHost() {
                         initial={{ scale: 1.2, color: "var(--accent)" }}
                         animate={{ scale: 1, color: "var(--accent)" }}
                         className="text-accent font-mono text-2xl font-bold mt-1"
+                        data-testid={`host-score-${team.name}`}
                     >
                         {team.score}
                     </motion.div>
@@ -438,6 +439,7 @@ export default function GameHost() {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => updateTeamScore(team.id, selectedTile?.value || 100)}
+                      aria-label={`Correct: add points to ${team.name}`}
                       className="bg-green-600 hover:bg-green-500 text-white w-14 h-14 rounded-full font-bold flex items-center justify-center shadow-lg text-2xl transition-colors"
                     >
                       +
@@ -446,6 +448,7 @@ export default function GameHost() {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => updateTeamScore(team.id, -(selectedTile?.value || 100))}
+                      aria-label={`Wrong: take points from ${team.name}`}
                       className="bg-destructive hover:bg-destructive/80 text-white w-14 h-14 rounded-full font-bold flex items-center justify-center shadow-lg text-2xl transition-colors"
                     >
                       −

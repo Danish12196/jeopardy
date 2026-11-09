@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
+import { makeGameCode } from "@/lib/gameCode";
 import {
   Select,
   SelectContent,
@@ -11,11 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-function makeGameCode(length = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-}
 
 export default function SelectTemplate({ selectedTeams }: { selectedTeams: string[] }) {
   const navigate = useNavigate();

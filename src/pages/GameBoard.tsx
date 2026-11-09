@@ -170,6 +170,7 @@ export default function GameBoard() {
                     initial={{ y: -10, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     className="text-accent text-2xl md:text-4xl font-mono font-bold"
+                    data-testid={`tv-score-${team.name}`}
                 >
                     {team.score}
                 </motion.p>

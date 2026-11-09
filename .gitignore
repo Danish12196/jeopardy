@@ -26,3 +26,8 @@ dist-ssr
 pb_data/
 pocketbase
 *.zip
+
+# Local test PocketBase + test output
+.pb/
+test-results/
+playwright-report/

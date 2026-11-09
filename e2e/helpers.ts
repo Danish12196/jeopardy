@@ -1,0 +1,89 @@
+import { expect, devices, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import PocketBase from "pocketbase";
+
+// Seeded by scripts/seed-test.mjs.
+export const HOST_EMAIL = process.env.SEED_USER_EMAIL || "host@lockout.test";
+export const HOST_PASSWORD = process.env.SEED_USER_PASSWORD || "lockout-host-password";
+export const TEMPLATE_TITLE = "Test Board";
+export const TEAMS = ["Team 1", "Team 2", "Team 3", "Team 4"];
+
+export const PB_URL = process.env.PB_URL!;
+
+/** A PocketBase client logged in as the test superuser. */
+export async function adminPb() {
+  const pb = new PocketBase(PB_URL);
+  pb.autoCancellation(false);
+  await pb.collection("_superusers").authWithPassword(process.env.PB_SUPERUSER_EMAIL!, process.env.PB_SUPERUSER_PASSWORD!);
+  return pb;
+}
+
+/** A PocketBase client with no login, like a phone buzzer. */
+export function guestPb() {
+  const pb = new PocketBase(PB_URL);
+  pb.autoCancellation(false);
+  return pb;
+}
+
+/** A PocketBase client logged in as a regular user. */
+export async function userPb(email: string, password: string) {
+  const pb = new PocketBase(PB_URL);
+  pb.autoCancellation(false);
+  await pb.collection("users").authWithPassword(email, password);
+  return pb;
+}
+
+/** Creates (or reuses) a regular user account and returns a logged-in client. */
+export async function makeUser(email: string, password = "lockout-other-password") {
+  const admin = await adminPb();
+  try {
+    await admin.collection("users").getFirstListItem(`email = "${email}"`);
+  } catch {
+    await admin.collection("users").create({ email, password, passwordConfirm: password, verified: true });
+  }
+  return userPb(email, password);
+}
+
+export async function loginAsHost(page: Page) {
+  await page.goto("/login");
+  await page.getByPlaceholder("Email").fill(HOST_EMAIL);
+  await page.getByPlaceholder("Password").fill(HOST_PASSWORD);
+  await page.getByRole("button", { name: "Login" }).click();
+  await expect(page.getByText("Lockout Game Setup")).toBeVisible();
+}
+
+/** Picks teams and the seeded template on the setup page, starts a game, returns its code. */
+export async function createGameViaUI(page: Page, teams: string[] = TEAMS.slice(0, 2), template = TEMPLATE_TITLE) {
+  for (const t of teams) await page.getByRole("button", { name: t, exact: true }).click();
+  await page.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: new RegExp(`^${template}`) }).click();
+  await page.getByRole("button", { name: "Start Game" }).click();
+  await page.waitForURL(/\/game\/[A-Z0-9]+\/host$/);
+  const code = page.url().match(/\/game\/([A-Z0-9]+)\/host$/)![1];
+  await expect(page.getByText("Host Dashboard")).toBeVisible();
+  return code;
+}
+
+export async function openTv(browser: Browser, code: string) {
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+  const page = await ctx.newPage();
+  await page.goto(`/game/${code}/board`);
+  return { ctx, page };
+}
+
+/** Opens a phone buzzer in its own browser context and picks a team. */
+export async function openBuzzer(browser: Browser, code: string, team: string): Promise<{ ctx: BrowserContext; page: Page }> {
+  const ctx = await browser.newContext({ ...devices["Pixel 7"] });
+  const page = await ctx.newPage();
+  await page.goto(`/game/${code}`);
+  await page.getByRole("button", { name: team, exact: true }).click();
+  await expect(page.getByText(`Team: ${team}`)).toBeVisible();
+  return { ctx, page };
+}
+
+/** Host opens the first unused tile with auto-open switched off. */
+export async function hostOpenFirstQuestion(host: Page) {
+  const auto = host.getByLabel("Auto-open on select");
+  if (await auto.isChecked()) await auto.uncheck();
+  await host.getByRole("button", { name: "100", exact: true }).first().click();
+  await expect(host.getByText("Answer", { exact: true })).toBeVisible();
+}

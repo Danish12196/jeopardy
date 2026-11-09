@@ -1,7 +1,9 @@
-// Adds test data: 4 categories x 3 questions, plus a "Test Board" template.
+// Adds test data: a test user, 4 teams, 4 categories x 3 questions, and a
+// "Test Board" template, all owned by the test user.
 // Run after init-db.mjs, with the same env vars:
 //   PB_URL, PB_SUPERUSER_EMAIL, PB_SUPERUSER_PASSWORD
-// Safe to re-run: categories and the template are matched by name and reused.
+// Optional: SEED_USER_EMAIL, SEED_USER_PASSWORD (defaults below).
+// Safe to re-run: records are matched by name and reused.
 
 import PocketBase from "pocketbase";
 
@@ -15,6 +17,9 @@ if (!PB_URL || !EMAIL || !PASSWORD) {
 }
 
 const TEMPLATE_TITLE = "Test Board";
+const USER_EMAIL = process.env.SEED_USER_EMAIL || "host@lockout.test";
+const USER_PASSWORD = process.env.SEED_USER_PASSWORD || "lockout-host-password";
+const TEAMS = ["Team 1", "Team 2", "Team 3", "Team 4"];
 
 const DATA = [
   {
@@ -73,6 +78,28 @@ async function main() {
   await pb.collection("_superusers").authWithPassword(EMAIL, PASSWORD);
   console.log(`Connected to ${PB_URL}`);
 
+  let user = await findFirst("users", `email = "${esc(USER_EMAIL)}"`);
+  if (user) {
+    console.log(`= user ${USER_EMAIL} exists`);
+  } else {
+    user = await pb.collection("users").create({
+      email: USER_EMAIL,
+      password: USER_PASSWORD,
+      passwordConfirm: USER_PASSWORD,
+      username: "host",
+      verified: true,
+    });
+    console.log(`+ user ${USER_EMAIL}`);
+  }
+
+  for (const name of TEAMS) {
+    const team = await findFirst("teams", `name = "${esc(name)}" && user = "${user.id}"`);
+    if (!team) {
+      await pb.collection("teams").create({ name, user: user.id, isPublic: false });
+      console.log(`+ team ${name}`);
+    }
+  }
+
   const categoryIds = [];
   const questionIds = [];
 
@@ -85,6 +112,7 @@ async function main() {
         name: cat.name,
         difficulty: cat.difficulty,
         isPublic: true,
+        user: user.id,
       });
       console.log(`+ category ${cat.name}`);
     }
@@ -103,6 +131,8 @@ async function main() {
           value: (i + 1) * 100,
           difficulty: i + 1,
           category: record.id,
+          isPublic: true,
+          user: user.id,
         });
         console.log(`  + ${question}`);
       }
@@ -111,7 +141,7 @@ async function main() {
   }
 
   const existing = await findFirst("game_templates", `title = "${TEMPLATE_TITLE}"`);
-  const payload = { title: TEMPLATE_TITLE, categories: categoryIds, questions: questionIds };
+  const payload = { title: TEMPLATE_TITLE, categories: categoryIds, questions: questionIds, isPublic: true, user: user.id };
   if (existing) {
     await pb.collection("game_templates").update(existing.id, payload);
     console.log(`~ template "${TEMPLATE_TITLE}" updated`);
