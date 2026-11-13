@@ -9,6 +9,7 @@ import { useLiveConnection } from "@/hooks/useLiveConnection";
 import { findQuestionPosition, loadGameState } from "@/lib/loadGameState";
 import { computeRemainingSeconds, makeTimerEndsAt } from "@/lib/timer";
 import { closestEstimationWinners, isTypedMatch, normalizeAnswer } from "@/lib/answerMatch";
+import { buildStandings } from "@/lib/historyStats";
 import type { AllInState, BoardQuestion, GameRecord, GameTeam, TeamRecord, TeamRegistrationRecord } from "@/lib/pbTypes";
 import {
   allInMaxWager,
@@ -262,8 +263,8 @@ export function useHostGame(uniqueID: string | undefined) {
     });
   };
 
-  const finishGame = () =>
-    updateGame({
+  const finishGame = async () => {
+    await updateGame({
       allInPhase: allInPhase ? "done" : "",
       gameOver: true,
       currentActiveQuestion: null,
@@ -272,6 +273,24 @@ export function useHostGame(uniqueID: string | undefined) {
       timerType: "",
       timerPausedRemaining: null,
     });
+    if (game?.host && !game.gameOver) {
+      const standings = buildStandings(teams, scores);
+      const top = standings[0];
+      try {
+        await pb.collection("game_history").create({
+          host: game.host,
+          gameCode: game.uniqueID,
+          title: game.title || `Game ${game.uniqueID}`,
+          winnerName: top?.name ?? "",
+          winnerScore: top?.score ?? 0,
+          standings,
+          finishedAt: new Date().toISOString(),
+        });
+      } catch {
+        // Non-fatal: game is still marked finished even if history write fails.
+      }
+    }
+  };
 
   const cancelQuestion = async () => {
     if (game?.id) {

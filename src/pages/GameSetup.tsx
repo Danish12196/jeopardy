@@ -86,9 +86,14 @@ export default function GameSetup() {
         >
           Lockout Game Setup
         </motion.h1>
-        <Button variant="outline" onClick={handleLogout} className="self-center md:self-auto">
-          Log out
-        </Button>
+        <div className="flex items-center gap-2 self-center md:self-auto">
+          <Button asChild variant="secondary">
+            <a href="/history">History & Stats</a>
+          </Button>
+          <Button variant="outline" onClick={handleLogout}>
+            Log out
+          </Button>
+        </div>
       </div>
 
       <motion.div

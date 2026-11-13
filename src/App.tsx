@@ -1,4 +1,5 @@
 import GameSetup from "./pages/GameSetup";
+import GameHistory from "./pages/GameHistory";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 import GameJoinPage from "./pages/GameJoinPage";
@@ -34,6 +35,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/" element={<PrivateRoute><GameSetup /></PrivateRoute>} />
+          <Route path="/history" element={<PrivateRoute><GameHistory /></PrivateRoute>} />
           <Route path="/game" element={<GameJoinPage />} />
           <Route path="/game/:uniqueID" element={<BuzzerPage />} />
           <Route path="/game/:uniqueID/board" element={<GameBoard />} />

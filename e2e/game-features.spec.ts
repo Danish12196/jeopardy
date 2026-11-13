@@ -493,3 +493,20 @@ test("Host tools: pause/resume, lock team, reopen tile, edit Q/A, and keyboard s
 
   await Promise.all([tv.ctx.close(), p1.ctx.close()]);
 });
+
+test("Game history & stats: ending a game records standings and updates leaderboard", async ({ page: host }) => {
+  const { game } = await setup(host);
+
+  await host.getByRole("button", { name: "Correct: add points to Team 1" }).click();
+  await expect(host.getByTestId("host-score-Team 1")).toHaveText("100");
+
+  await host.getByRole("button", { name: "End game" }).click();
+  await host.getByRole("dialog").getByRole("button", { name: "End game" }).click();
+  await expect(host.getByRole("dialog")).toBeHidden();
+
+  await host.goto("/history");
+  await expect(host.getByTestId("history-leaderboard")).toContainText("Team 1");
+  await expect(host.getByTestId("history-games-list")).toContainText(game.uniqueID);
+  await expect(host.getByTestId("history-games-list")).toContainText("Team 1: 100");
+});
+

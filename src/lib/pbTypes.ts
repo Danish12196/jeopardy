@@ -187,3 +187,22 @@ export interface GameTeam {
   emoji?: string;
   members?: string[];
 }
+
+export interface GameHistoryStanding {
+  id: string;
+  name: string;
+  emoji?: string;
+  color?: string;
+  score: number;
+}
+
+export interface GameHistoryRecord extends RecordModel {
+  host: string;
+  gameCode: string;
+  title: string;
+  winnerName?: string;
+  winnerScore?: number;
+  standings?: GameHistoryStanding[];
+  finishedAt?: string;
+}
+
