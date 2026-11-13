@@ -328,4 +328,89 @@ test("Sound & effects: mute setting and host toggle sync to TV", async ({ page: 
   await tv.ctx.close();
 });
 
+test("Question types: multiple choice and estimation submit from phone and auto-score on host", async ({ page: host, browser }) => {
+  const api = await userPb(HOST_EMAIL, HOST_PASSWORD);
+  const userId = api.authStore.record!.id;
+  const t1 = await api.collection("teams").create({ name: "QTeam1", user: userId, isPublic: true });
+  const t2 = await api.collection("teams").create({ name: "QTeam2", user: userId, isPublic: true });
+  const cat = await api.collection("question_categories").create({ name: "QTypes", user: userId, isPublic: true });
+  const qMc = await api.collection("questions").create({
+    question: "Pick the prime number",
+    answer: "7",
+    questionType: "multiple_choice",
+    options: ["4", "7", "9", "12"],
+    value: 100,
+    difficulty: 1,
+    category: cat.id,
+    user: userId,
+    isPublic: true,
+  });
+  const qEst = await api.collection("questions").create({
+    question: "How many minutes in a day?",
+    answer: "1440",
+    questionType: "estimation",
+    value: 200,
+    difficulty: 2,
+    category: cat.id,
+    user: userId,
+    isPublic: true,
+  });
+  const tpl = await api.collection("game_templates").create({
+    title: "QTypes Board",
+    categories: [cat.id],
+    questions: [qMc.id, qEst.id],
+    user: userId,
+    isPublic: true,
+  });
+  const game = await api.collection("games").create({
+    title: "QTypes Game",
+    uniqueID: `Q${Date.now().toString(36).slice(-5).toUpperCase()}`,
+    template: tpl.id,
+    host: userId,
+    teams: [t1.id, t2.id],
+    categories: ["QTypes"],
+    values: [100, 200],
+    teamScores: [{ id: t1.id, score: 0 }, { id: t2.id, score: 0 }],
+    answeredQuestions: [],
+    buzzRound: 0,
+    showAnswer: false,
+    buzzerUnlocked: false,
+    hostForceShowQuestion: false,
+  });
+
+  await loginAsHost(host);
+  await host.goto(`/game/${game.uniqueID}/host`);
+  const tv = await openTv(browser, game.uniqueID);
+  await expect(tv.page.getByText("QTypes")).toBeVisible();
+  const p1 = await openBuzzer(browser, game.uniqueID, "QTeam1");
+  const p2 = await openBuzzer(browser, game.uniqueID, "QTeam2");
+
+  // Multiple choice
+  await host.getByRole("button", { name: "100", exact: true }).click();
+  await expect(tv.page.getByTestId("tv-mc-options")).toContainText("7");
+  await p1.page.getByTestId("phone-mc-option").filter({ hasText: "7" }).click();
+  await expect(p1.page.getByTestId("phone-answer-submitted")).toContainText("7");
+  await p2.page.getByTestId("phone-mc-option").filter({ hasText: "4" }).click();
+  await expect(host.getByTestId("host-submitted-answers")).toContainText("Submitted Answers (2)");
+
+  await host.getByRole("button", { name: "Auto-Score Answers" }).click();
+  await expect(host.getByTestId("host-score-QTeam1")).toHaveText("100");
+  await expect(host.getByTestId("host-score-QTeam2")).toHaveText("-100");
+
+  // Estimation
+  await host.getByRole("button", { name: "Done (Back to Board)" }).click();
+  await host.getByRole("button", { name: "200", exact: true }).click();
+  await p1.page.getByLabel("Your estimate").fill("1000");
+  await p1.page.getByRole("button", { name: "Submit Estimate" }).click();
+  await p2.page.getByLabel("Your estimate").fill("1400");
+  await p2.page.getByRole("button", { name: "Submit Estimate" }).click();
+  await expect(host.getByTestId("host-submitted-answers")).toContainText("Submitted Answers (2)");
+
+  await host.getByRole("button", { name: "Award Closest" }).click();
+  await expect(host.getByTestId("host-score-QTeam2")).toHaveText("100");
+
+  await Promise.all([tv.ctx.close(), p1.ctx.close(), p2.ctx.close()]);
+});
+
+
 

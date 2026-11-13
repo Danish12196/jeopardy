@@ -36,12 +36,17 @@ export function buildBoardFromRecords(
       .map((q, i) => {
         const base = s.customValues[i] ?? (Number(q.value) > 0 ? Number(q.value) : (i + 1) * 100);
         const media = resolveQuestionMedia(pb, q);
+        const options = Array.isArray(q.options)
+          ? q.options.map((o) => String(o).trim()).filter(Boolean)
+          : undefined;
         return {
           id: q.id,
           question: q.question,
           answer: q.answer,
           value: Math.round(base * s.pointMultiplier),
           ...(media ? { mediaUrl: media.mediaUrl, mediaType: media.mediaType } : {}),
+          ...(q.questionType ? { questionType: q.questionType } : {}),
+          ...(options && options.length > 0 ? { options } : {}),
         };
       })
   );

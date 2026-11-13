@@ -8,7 +8,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import type { QuestionCategoryRecord } from "@/lib/pbTypes";
+import type { QuestionCategoryRecord, QuestionType } from "@/lib/pbTypes";
 
 export type QuestionDraft = {
   question: string;
@@ -16,6 +16,8 @@ export type QuestionDraft = {
   hint: string;
   mediaUrl?: string;
   mediaFile?: File | null;
+  questionType?: QuestionType;
+  optionsText?: string;
   value: number;
   category: string;
   difficulty: string;
@@ -47,13 +49,36 @@ export default function BulkQuestionRow({
       exit={{ opacity: 0, height: 0 }}
       className="border-b border-border/20 last:border-0 hover:bg-muted/10 transition-colors"
     >
-      <td className="p-2">
+      <td className="p-2 space-y-1">
         <Input
           value={row.question}
           onChange={(e) => onUpdate("question", e.target.value)}
           className="bg-background text-foreground"
           placeholder="Enter question"
         />
+        <Select
+          value={row.questionType ?? "buzzer"}
+          onValueChange={(val) => onUpdate("questionType", val as QuestionType)}
+        >
+          <SelectTrigger aria-label="Question Type" className="bg-background text-foreground h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="buzzer">Buzzer</SelectItem>
+            <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+            <SelectItem value="typed">Typed Answer</SelectItem>
+            <SelectItem value="estimation">Estimation</SelectItem>
+          </SelectContent>
+        </Select>
+        {row.questionType === "multiple_choice" && (
+          <Input
+            value={row.optionsText ?? ""}
+            onChange={(e) => onUpdate("optionsText", e.target.value)}
+            className="bg-background text-foreground text-xs h-8"
+            placeholder="Options (comma-separated, e.g. A, B, C, D)"
+            aria-label="Multiple Choice Options"
+          />
+        )}
       </td>
       <td className="p-2">
         <Input

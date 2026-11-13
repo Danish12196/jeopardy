@@ -4,13 +4,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 import { useGameSubscription } from "@/hooks/useGameSubscription";
 import { useBuzzes } from "@/hooks/useBuzzes";
+import { useAnswers } from "@/hooks/useAnswers";
 import { buzzPosition } from "@/lib/buzzes";
 import PhoneAllIn from "@/components/phone/PhoneAllIn";
 import { useLiveConnection } from "@/hooks/useLiveConnection";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 import TimerDisplay from "@/components/TimerDisplay";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { brandingStyleVars } from "@/lib/branding";
-import type { GameRecord, TeamRecord } from "@/lib/pbTypes";
+import type { GameRecord, QuestionRecord, TeamRecord } from "@/lib/pbTypes";
 
 
 // Storage key for the team a phone picked. Older builds (before the Lockout
@@ -43,12 +46,17 @@ export default function BuzzerPage() {
   // The round this phone tapped in, until the server confirms or rejects it.
   const [pendingRound, setPendingRound] = useState<number | null>(null);
   const [rejectedRound, setRejectedRound] = useState<number | null>(null);
+  const [activeQuestion, setActiveQuestion] = useState<QuestionRecord | null>(null);
+  const [answerDraft, setAnswerDraft] = useState("");
+  const [answerSubmitting, setAnswerSubmitting] = useState(false);
+  const [answerError, setAnswerError] = useState<string | null>(null);
 
   const { connected, reloadKey } = useLiveConnection();
   const round = game?.buzzRound ?? 0;
   const rawBuzzQueue = useBuzzes(game?.id, round, reloadKey);
   const passedTeams = game?.passedTeams || [];
   const buzzQueue = rawBuzzQueue.filter((b) => !passedTeams.includes(b.team));
+  const answers = useAnswers(game?.id, game?.currentActiveQuestion, round, reloadKey);
 
   useEffect(() => {
     // Attempt to restore team selection from local storage
@@ -94,6 +102,28 @@ export default function BuzzerPage() {
   // Live updates, plus a refetch after any reconnect.
   useGameSubscription(game?.id, reloadKey, setGame);
 
+  useEffect(() => {
+    const qId = game?.currentActiveQuestion;
+    setAnswerDraft("");
+    setAnswerError(null);
+    if (!qId) {
+      setActiveQuestion(null);
+      return;
+    }
+    let cancelled = false;
+    pb.collection("questions")
+      .getOne<QuestionRecord>(qId)
+      .then((rec) => {
+        if (!cancelled) setActiveQuestion(rec);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveQuestion(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game?.currentActiveQuestion]);
+
   const selectTeam = (teamId: string) => {
     setSelectedTeamId(teamId);
     try { localStorage.setItem(teamKey(uniqueID), teamId); } catch { /* storage unavailable */ }
@@ -102,6 +132,30 @@ export default function BuzzerPage() {
   const myPosition = selectedTeamId ? buzzPosition(buzzQueue, selectedTeamId) : 0;
   const pending = pendingRound === round && !myPosition;
   const rejected = rejectedRound === round;
+  const myAnswer = selectedTeamId ? answers.find((a) => a.team === selectedTeamId) : undefined;
+  const qType = activeQuestion?.questionType || "buzzer";
+  const isAnswerMode = Boolean(game?.currentActiveQuestion && qType !== "buzzer");
+
+  const handleSubmitAnswer = async (value: string) => {
+    const trimmed = value.trim();
+    if (!game || !game.currentActiveQuestion || !selectedTeamId || !trimmed || answerSubmitting || myAnswer) return;
+    setAnswerSubmitting(true);
+    setAnswerError(null);
+    try {
+      await pb.collection("answers").create({
+        game: game.id,
+        question: game.currentActiveQuestion,
+        round,
+        team: selectedTeamId,
+        value: trimmed,
+      });
+      setAnswerDraft("");
+    } catch {
+      setAnswerError("Could not submit answer.");
+    } finally {
+      setAnswerSubmitting(false);
+    }
+  };
 
   const handleBuzz = async () => {
     if (!game || !selectedTeamId || !game.buzzerUnlocked || pending || myPosition) return;
@@ -207,6 +261,65 @@ export default function BuzzerPage() {
             timerPausedRemaining={game.timerPausedRemaining}
           />
         </div>
+        {isAnswerMode && activeQuestion ? (
+          <div className="w-full max-w-md bg-card/70 backdrop-blur-md p-6 rounded-2xl border border-border/50 shadow-xl space-y-4" data-testid="phone-answer-panel">
+            <p className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">
+              {qType === "multiple_choice"
+                ? "Choose an option"
+                : qType === "estimation"
+                ? "Enter your closest estimate"
+                : "Type your answer"}
+            </p>
+            <p className="text-lg font-bold text-foreground">{activeQuestion.question}</p>
+            {myAnswer ? (
+              <div className="p-4 rounded-xl bg-green-500/20 border border-green-500/40 text-green-300 font-bold text-center" data-testid="phone-answer-submitted">
+                Answer submitted: {myAnswer.value}
+              </div>
+            ) : qType === "multiple_choice" && Array.isArray(activeQuestion.options) && activeQuestion.options.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3">
+                {activeQuestion.options.map((opt, idx) => (
+                  <Button
+                    key={`${idx}-${opt}`}
+                    variant="secondary"
+                    size="lg"
+                    disabled={answerSubmitting}
+                    onClick={() => handleSubmitAnswer(opt)}
+                    className="justify-start text-left h-auto py-3 px-4 font-bold"
+                    data-testid="phone-mc-option"
+                  >
+                    <span className="bg-accent text-accent-foreground rounded px-2 py-0.5 mr-3 text-xs font-black">
+                      {String.fromCharCode(65 + idx)}
+                    </span>
+                    {opt}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <form
+                className="flex flex-col gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleSubmitAnswer(answerDraft);
+                }}
+              >
+                <Input
+                  type={qType === "estimation" ? "number" : "text"}
+                  step={qType === "estimation" ? "any" : undefined}
+                  aria-label={qType === "estimation" ? "Your estimate" : "Your answer"}
+                  value={answerDraft}
+                  onChange={(e) => setAnswerDraft(e.target.value)}
+                  placeholder={qType === "estimation" ? "Enter a number..." : "Type your answer..."}
+                  className="bg-background text-foreground h-12 text-lg"
+                />
+                <Button type="submit" variant="brand" size="lg" disabled={!answerDraft.trim() || answerSubmitting}>
+                  {qType === "estimation" ? "Submit Estimate" : "Submit Answer"}
+                </Button>
+              </form>
+            )}
+            {answerError && <p className="text-sm text-destructive font-semibold">{answerError}</p>}
+          </div>
+        ) : (
+        <>
         {/* Buzzer Button */}
         <motion.button
           onClick={handleBuzz}
@@ -261,6 +374,8 @@ export default function BuzzerPage() {
                )}
            </AnimatePresence>
         </div>
+        </>
+        )}
       </div>
       )}
     </div>

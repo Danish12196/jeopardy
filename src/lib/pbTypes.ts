@@ -36,6 +36,7 @@ export interface QuestionCategoryRecord extends RecordModel {
 }
 
 export type MediaKind = "image" | "audio" | "video";
+export type QuestionType = "buzzer" | "multiple_choice" | "typed" | "estimation";
 
 export interface QuestionRecord extends RecordModel {
   question: string;
@@ -49,6 +50,8 @@ export interface QuestionRecord extends RecordModel {
   media?: string;
   mediaUrl?: string;
   mediaType?: MediaKind | "";
+  questionType?: QuestionType | "";
+  options?: string[];
   expand?: {
     user?: RecordModel;
     category?: QuestionCategoryRecord;
@@ -148,6 +151,16 @@ export interface BoardQuestion {
   value: number;
   mediaUrl?: string;
   mediaType?: MediaKind;
+  questionType?: QuestionType;
+  options?: string[];
+}
+
+export interface AnswerRecord extends RecordModel {
+  game: string;
+  question: string;
+  round: number;
+  team: string;
+  value: string;
 }
 
 export interface GameTeam {

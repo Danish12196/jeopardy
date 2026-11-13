@@ -69,6 +69,8 @@ export default function GameHost() {
     pauseTimer,
     resumeTimer,
     clearTimer,
+    answers,
+    autoScoreAnswers,
   } = useHostGame(uniqueID);
 
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
@@ -229,6 +231,8 @@ export default function GameHost() {
                 topValue={topValue}
                 settings={settings}
                 hasBuzzes={buzzQueue.length > 0}
+                answers={answers}
+                onAutoScoreAnswers={autoScoreAnswers}
                 hostForceShowQuestion={Boolean(game.hostForceShowQuestion)}
                 onLockInWildcard={lockInWildcard}
                 onScoreWildcard={scoreWildcard}

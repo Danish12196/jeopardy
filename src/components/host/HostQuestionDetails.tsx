@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import WildcardPanel from "@/components/host/WildcardPanel";
 import QuestionMedia from "@/components/QuestionMedia";
-import type { BoardQuestion, GameSettings, GameTeam, WildcardState } from "@/lib/pbTypes";
+import type { AnswerRecord, BoardQuestion, GameSettings, GameTeam, WildcardState } from "@/lib/pbTypes";
+import { closestEstimationWinners, isTypedMatch, normalizeAnswer } from "@/lib/answerMatch";
 import type { TeamScore } from "@/lib/scoring";
 
 type Props = {
@@ -20,6 +21,8 @@ type Props = {
   topValue: number;
   settings?: GameSettings;
   hasBuzzes: boolean;
+  answers?: AnswerRecord[];
+  onAutoScoreAnswers?: () => void;
   hostForceShowQuestion: boolean;
   onLockInWildcard: (team: string, wager: number) => void;
   onScoreWildcard: (correct: boolean) => void;
@@ -39,6 +42,8 @@ export default function HostQuestionDetails({
   topValue,
   settings,
   hasBuzzes,
+  answers = [],
+  onAutoScoreAnswers,
   hostForceShowQuestion,
   onLockInWildcard,
   onScoreWildcard,
@@ -47,6 +52,16 @@ export default function HostQuestionDetails({
   onCancel,
   onDone,
 }: Props) {
+  const qType = selectedTile.questionData.questionType || "buzzer";
+  const expected = selectedTile.questionData.answer;
+  const estWinners =
+    qType === "estimation"
+      ? closestEstimationWinners(
+          answers.map((a) => ({ team: a.team, value: a.value })),
+          expected
+        )
+      : [];
+
   return (
     <motion.div
       key="details"
@@ -70,12 +85,50 @@ export default function HostQuestionDetails({
       </div>
 
       {/* Host always sees the answer */}
-      <div className="text-xl mb-8 text-accent bg-accent/10 p-6 rounded-xl font-bold border-2 border-accent/40 border-dashed z-10 shadow-sm flex flex-col gap-2">
+      <div className="text-xl mb-6 text-accent bg-accent/10 p-6 rounded-xl font-bold border-2 border-accent/40 border-dashed z-10 shadow-sm flex flex-col gap-2">
         <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">
           Answer
         </span>
         {selectedTile.questionData.answer}
       </div>
+
+      {qType !== "buzzer" && (
+        <div className="mb-6 bg-background/50 p-4 rounded-xl border border-border/50 z-10 space-y-3" data-testid="host-submitted-answers">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">
+              Submitted Answers ({answers.length})
+            </span>
+            {answers.length > 0 && onAutoScoreAnswers && (
+              <Button size="sm" variant="brand" onClick={onAutoScoreAnswers}>
+                {qType === "estimation" ? "Award Closest" : "Auto-Score Answers"}
+              </Button>
+            )}
+          </div>
+          {answers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Waiting for teams to submit...</p>
+          ) : (
+            <ul className="space-y-1.5 text-sm">
+              {answers.map((a) => {
+                const teamName = teams.find((t) => t.id === a.team)?.name ?? a.team;
+                const isMatch =
+                  qType === "estimation"
+                    ? estWinners.includes(a.team)
+                    : qType === "typed"
+                    ? isTypedMatch(a.value, expected)
+                    : normalizeAnswer(a.value) === normalizeAnswer(expected);
+                return (
+                  <li key={a.id} className="flex items-center justify-between bg-card/60 px-3 py-1.5 rounded-lg">
+                    <span className="font-semibold">{teamName}</span>
+                    <span className={isMatch ? "text-green-400 font-bold" : "text-muted-foreground"}>
+                      {a.value} {isMatch ? "✓" : ""}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       {wildcard?.question === selectedTile.questionData.id && (
         <>
