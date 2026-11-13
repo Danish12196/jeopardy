@@ -14,6 +14,7 @@ import TvQuestionCard from "@/components/tv/TvQuestionCard";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 import { loadGameState } from "@/lib/loadGameState";
 import { playBuzzerTone } from "@/lib/sound";
+import { brandingStyleVars, normalizeBranding } from "@/lib/branding";
 import type { BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
 import { effectiveBoardValues, scoreOf } from "@/lib/scoring";
 
@@ -31,6 +32,7 @@ export default function GameBoard() {
   const [buzzRound, setBuzzRound] = useState(0);
   const { connected, reloadKey } = useLiveConnection();
   const [live, setLive] = useState<GameRecord | null>(null);
+  const branding = normalizeBranding(live?.settings?.branding);
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
   const values = effectiveBoardValues(live?.values, rowCount, live?.settings);
   const allInPhase: string = live?.allInPhase || "";
@@ -118,8 +120,24 @@ export default function GameBoard() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col p-4 md:p-8 overflow-hidden bg-background bg-animated-gradient">
+    <div
+      style={brandingStyleVars(live?.settings?.branding)}
+      data-theme={branding.tvTheme}
+      className="min-h-screen flex flex-col p-4 md:p-8 overflow-hidden bg-background text-foreground"
+    >
       <ReconnectingBadge show={!connected} />
+      {(branding.gameTitle || branding.logoUrl) && (
+        <div className="flex items-center justify-center gap-3 mb-4" data-testid="tv-branding-header">
+          {branding.logoUrl && (
+            <img src={branding.logoUrl} alt="Game logo" className="h-10 w-10 object-contain rounded" />
+          )}
+          {branding.gameTitle && (
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-accent">
+              {branding.gameTitle}
+            </h1>
+          )}
+        </div>
+      )}
       <TvScoreboard teams={teams} />
 
       <div className="flex-1 flex items-center justify-center w-full overflow-x-auto pb-4">

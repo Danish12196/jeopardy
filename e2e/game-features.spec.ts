@@ -99,6 +99,7 @@ test("All In: hidden wagers, right/wrong, one-by-one reveal, game over", async (
   await expectRejected(guestPb().collection("wagers").create({ game: game.id, team: game.teams[1], amount: 1 }));
 
   await host.getByRole("button", { name: "Team 1 right" }).click();
+  await expect(host.getByRole("button", { name: "Team 1 right" })).toHaveAttribute("aria-pressed", "true");
   await host.getByRole("button", { name: "Team 2 wrong" }).click();
   await host.getByRole("button", { name: "Start the reveal on the TV" }).click();
 
@@ -275,3 +276,30 @@ test("Media questions: image and audio render on host and TV", async ({ page: ho
 
   await tv.ctx.close();
 });
+
+test("Themes & branding: custom title, accent color, and light TV theme render on TV", async ({ page: host, browser }) => {
+  await loginAsHost(host);
+  await host.goto("/");
+  await host.getByRole("button", { name: "Team 1" }).click();
+  await host.getByRole("button", { name: "Team 2" }).click();
+  await host.getByRole("combobox").click();
+  await host.getByRole("option", { name: /Test Board/ }).click();
+  await host.getByRole("button", { name: /Game Rules & Settings/ }).click();
+  await host.getByLabel("Game Title").fill("Friday Trivia Night");
+  await host.getByLabel("Accent Color Hex").fill("#22c55e");
+  await host.getByLabel("TV Theme").click();
+  await host.getByRole("option", { name: "Light" }).click();
+  await host.getByRole("button", { name: "Start Game" }).click();
+
+  await expect(host).toHaveURL(/\/game\/[A-Z0-9]+\/host/);
+  const uniqueID = host.url().match(/\/game\/([A-Z0-9]+)\/host/)![1];
+
+  const tv = await openTv(browser, uniqueID);
+  await expect(tv.page.getByTestId("tv-branding-header")).toContainText("Friday Trivia Night");
+  await expect(tv.page.locator("[data-theme='light']")).toBeVisible();
+  const accent = await tv.page.locator("[data-theme='light']").evaluate((el) => el.style.getPropertyValue("--accent"));
+  expect(accent).toBe("#22c55e");
+
+  await tv.ctx.close();
+});
+

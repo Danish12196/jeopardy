@@ -13,6 +13,7 @@ import EndGameDialog from "@/components/host/EndGameDialog";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 import { useHostGame } from "@/hooks/useHostGame";
 import { effectiveBoardValues } from "@/lib/scoring";
+import { brandingStyleVars } from "@/lib/branding";
 
 export default function GameHost() {
   const { uniqueID } = useParams();
@@ -115,7 +116,7 @@ export default function GameHost() {
   };
 
   return (
-    <div className="min-h-screen bg-background bg-animated-gradient text-foreground p-4 md:p-8">
+    <div style={brandingStyleVars(settings.branding)} className="min-h-screen bg-background bg-animated-gradient text-foreground p-4 md:p-8">
       <ReconnectingBadge show={!connected} />
       <HostHeader uniqueID={uniqueID} onCopyError={setActionError} />
 

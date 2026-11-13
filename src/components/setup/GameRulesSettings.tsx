@@ -210,6 +210,114 @@ export default function GameRulesSettings({ settings, onChange }: Props) {
               className="bg-background"
             />
           </div>
+
+          <div className="md:col-span-2 border-t border-border/40 pt-4 mt-1">
+            <p className="font-bold text-base mb-3">Themes &amp; Branding</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="brand-title" className="block font-semibold mb-1.5">
+                  Custom Game Title
+                </label>
+                <Input
+                  id="brand-title"
+                  value={s.branding.gameTitle ?? ""}
+                  onChange={(e) =>
+                    update({ branding: { ...s.branding, gameTitle: e.target.value } })
+                  }
+                  placeholder="e.g. Friday Trivia Night"
+                  className="bg-background"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="brand-logo" className="block font-semibold mb-1.5">
+                  Logo URL (optional)
+                </label>
+                <Input
+                  id="brand-logo"
+                  value={s.branding.logoUrl ?? ""}
+                  onChange={(e) =>
+                    update({ branding: { ...s.branding, logoUrl: e.target.value } })
+                  }
+                  placeholder="https://example.com/logo.png"
+                  className="bg-background"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="brand-accent" className="block font-semibold mb-1.5">
+                  Accent Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="brand-accent"
+                    type="color"
+                    value={s.branding.accentColor ?? "#FF5A1F"}
+                    onChange={(e) =>
+                      update({ branding: { ...s.branding, accentColor: e.target.value } })
+                    }
+                    className="h-10 w-14 rounded border border-border bg-background cursor-pointer"
+                  />
+                  <Input
+                    aria-label="Accent Color Hex"
+                    value={s.branding.accentColor ?? "#FF5A1F"}
+                    onChange={(e) =>
+                      update({ branding: { ...s.branding, accentColor: e.target.value } })
+                    }
+                    className="bg-background font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="brand-tv-theme" className="block font-semibold mb-1.5">
+                    TV Theme
+                  </label>
+                  <Select
+                    value={s.branding.tvTheme ?? "dark"}
+                    onValueChange={(v) =>
+                      update({ branding: { ...s.branding, tvTheme: v as "dark" | "light" } })
+                    }
+                  >
+                    <SelectTrigger id="brand-tv-theme" aria-label="TV Theme" className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="light">Light</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label htmlFor="brand-bg-style" className="block font-semibold mb-1.5">
+                    Background
+                  </label>
+                  <Select
+                    value={s.branding.backgroundStyle ?? "gradient"}
+                    onValueChange={(v) =>
+                      update({
+                        branding: {
+                          ...s.branding,
+                          backgroundStyle: v as "gradient" | "solid" | "midnight",
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger id="brand-bg-style" aria-label="Background Style" className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gradient">Gradient</SelectItem>
+                      <SelectItem value="solid">Solid</SelectItem>
+                      <SelectItem value="midnight">Midnight</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
