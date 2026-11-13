@@ -121,6 +121,9 @@ export async function loadGameState(
     id: t.id,
     name: t.name,
     score: scoreOf(game.teamScores, t.id),
+    ...(t.color ? { color: t.color } : {}),
+    ...(t.emoji ? { emoji: t.emoji } : {}),
+    ...(Array.isArray(t.members) && t.members.length > 0 ? { members: t.members } : {}),
   }));
 
   return {

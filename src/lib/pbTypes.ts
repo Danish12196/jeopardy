@@ -23,6 +23,9 @@ export interface TeamRecord extends RecordModel {
   name: string;
   user?: string;
   isPublic?: boolean;
+  color?: string;
+  emoji?: string;
+  members?: string[];
 }
 
 export interface QuestionCategoryRecord extends RecordModel {
@@ -108,6 +111,7 @@ export interface GameSettings {
   answerTimerSeconds?: number;
   branding?: BrandingSettings;
   sound?: SoundSettings;
+  allowSelfRegistration?: boolean;
 }
 
 export interface GameRecord extends RecordModel {
@@ -163,8 +167,20 @@ export interface AnswerRecord extends RecordModel {
   value: string;
 }
 
+export interface TeamRegistrationRecord extends RecordModel {
+  game: string;
+  name: string;
+  color?: string;
+  emoji?: string;
+  members?: string[];
+  status: "pending" | "approved" | "rejected";
+}
+
 export interface GameTeam {
   id: string;
   name: string;
   score: number;
+  color?: string;
+  emoji?: string;
+  members?: string[];
 }

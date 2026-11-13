@@ -15,14 +15,20 @@ export default function TvScoreboard({ teams }: Props) {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             layout
+            style={team.color ? { borderColor: team.color } : undefined}
             className="bg-card/80 backdrop-blur-md border-2 border-accent/40 rounded-xl px-4 md:px-8 py-2 md:py-4 text-center shadow-lg w-32 md:w-48 transition-colors"
           >
             <h2
-              className="font-bold text-lg md:text-2xl mb-1 md:mb-2 truncate text-foreground"
+              className="font-bold text-lg md:text-2xl mb-1 truncate text-foreground"
               title={team.name}
             >
-              {team.name}
+              {team.emoji ? `${team.emoji} ` : ""}{team.name}
             </h2>
+            {team.members && team.members.length > 0 && (
+              <p className="text-xs text-muted-foreground truncate mb-1" title={team.members.join(", ")}>
+                {team.members.join(", ")}
+              </p>
+            )}
             <motion.p
               key={team.score}
               initial={{ y: -10, opacity: 0 }}

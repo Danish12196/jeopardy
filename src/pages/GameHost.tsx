@@ -71,6 +71,9 @@ export default function GameHost() {
     clearTimer,
     answers,
     autoScoreAnswers,
+    pendingRegistrations,
+    approveRegistration,
+    rejectRegistration,
   } = useHostGame(uniqueID);
 
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
@@ -263,6 +266,34 @@ export default function GameHost() {
             onResumeTimer={resumeTimer}
             onClearTimer={clearTimer}
           />
+
+          {pendingRegistrations.length > 0 && (
+            <div className="bg-card/60 backdrop-blur-md p-4 rounded-2xl border border-accent/40 shadow-lg space-y-2" data-testid="host-team-requests">
+              <h3 className="text-sm uppercase tracking-wider font-bold text-accent">
+                Team Join Requests ({pendingRegistrations.length})
+              </h3>
+              {pendingRegistrations.map((reg) => (
+                <div key={reg.id} className="flex items-center justify-between gap-2 bg-background/50 px-3 py-2 rounded-lg">
+                  <div className="min-w-0">
+                    <div className="font-bold truncate">
+                      {reg.emoji ? `${reg.emoji} ` : ""}{reg.name}
+                    </div>
+                    {reg.members && reg.members.length > 0 && (
+                      <div className="text-xs text-muted-foreground truncate">{reg.members.join(", ")}</div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="sm" variant="brand" onClick={() => void approveRegistration(reg)}>
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void rejectRegistration(reg)}>
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <HostTeamScores
             teams={teams}

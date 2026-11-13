@@ -99,6 +99,14 @@ const ANSWER_RULES = {
   deleteRule: null,
 };
 
+const TEAM_REG_RULES = {
+  listRule: "",
+  viewRule: "",
+  createRule: "name != '' && status = 'pending'",
+  updateRule: "game.host = @request.auth.id",
+  deleteRule: "game.host = @request.auth.id",
+};
+
 const timestamps = [
   { name: "created", type: "autodate", onCreate: true, onUpdate: false },
   { name: "updated", type: "autodate", onCreate: true, onUpdate: true },
@@ -143,6 +151,9 @@ const COLLECTIONS = [
       { name: "name", type: "text", required: true },
       relation("user", "users", { single: true, required: true }),
       { name: "isPublic", type: "bool" },
+      { name: "color", type: "text" },
+      { name: "emoji", type: "text" },
+      { name: "members", type: "json", maxSize: 0 },
     ],
   },
   {
@@ -278,6 +289,18 @@ const COLLECTIONS = [
     ],
     indexes: [
       "CREATE UNIQUE INDEX `idx_answers_game_q_round_team` ON `answers` (`game`, `question`, `round`, `team`)",
+    ],
+  },
+  {
+    name: "team_registrations",
+    rules: TEAM_REG_RULES,
+    fields: [
+      relation("game", "games", { single: true, required: true, cascade: true }),
+      { name: "name", type: "text", required: true },
+      { name: "color", type: "text" },
+      { name: "emoji", type: "text" },
+      { name: "members", type: "json", maxSize: 0 },
+      { name: "status", type: "select", maxSelect: 1, values: ["pending", "approved", "rejected"], required: true },
     ],
   },
 ];

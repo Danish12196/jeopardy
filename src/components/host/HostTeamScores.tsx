@@ -70,14 +70,23 @@ export default function HostTeamScores({
               }`}
             >
               <div className="flex-1 min-w-0 pr-4">
-                <div className="font-bold text-lg flex items-center gap-3 truncate">
-                  <span className="truncate">{team.name}</span>
+                <div className="font-bold text-lg flex items-center gap-2 truncate">
+                  {team.color && (
+                    <span
+                      className="inline-block w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: team.color }}
+                    />
+                  )}
+                  <span className="truncate">{team.emoji ? `${team.emoji} ` : ""}{team.name}</span>
                   {buzzPosition(buzzQueue, team.id) > 0 && (
                     <span className="text-xs bg-accent text-accent-foreground px-2 py-1 rounded-full whitespace-nowrap shadow-sm font-bold">
                       Buzz #{buzzPosition(buzzQueue, team.id)}
                     </span>
                   )}
                 </div>
+                {team.members && team.members.length > 0 && (
+                  <p className="text-xs text-muted-foreground truncate">{team.members.join(", ")}</p>
+                )}
                 <motion.div
                   key={scoreOf(scores, team.id)}
                   initial={{ scale: 1.2, color: "var(--accent)" }}

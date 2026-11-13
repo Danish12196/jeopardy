@@ -50,6 +50,11 @@ export default function BuzzerPage() {
   const [answerDraft, setAnswerDraft] = useState("");
   const [answerSubmitting, setAnswerSubmitting] = useState(false);
   const [answerError, setAnswerError] = useState<string | null>(null);
+  const [regName, setRegName] = useState("");
+  const [regEmoji, setRegEmoji] = useState("🚀");
+  const [regColor, setRegColor] = useState("#FF5A1F");
+  const [regMembers, setRegMembers] = useState("");
+  const [regPendingName, setRegPendingName] = useState<string | null>(null);
 
   const { connected, reloadKey } = useLiveConnection();
   const round = game?.buzzRound ?? 0;
@@ -178,6 +183,31 @@ export default function BuzzerPage() {
     }
   };
 
+  useEffect(() => {
+    if (!game) return;
+    const teamIds = game.teams ?? [];
+    if (teamIds.length === 0) return;
+    const known = new Set(teams.map((t) => t.id));
+    if (teamIds.every((id) => known.has(id)) && teams.length === teamIds.length) return;
+    pb.collection("games")
+      .getOne<GameRecord>(game.id, { expand: "teams" })
+      .then((freshGame) => {
+        const fetched = freshGame.expand?.teams ?? [];
+        const byId = new Map(fetched.map((t) => [t.id, t]));
+        const ordered = teamIds.map((id) => byId.get(id)).filter((t): t is TeamRecord => Boolean(t));
+        setTeams(ordered);
+        if (regPendingName) {
+          const match = ordered.find((t) => t.name === regPendingName);
+          if (match) {
+            setRegPendingName(null);
+            setSelectedTeamId(match.id);
+            try { localStorage.setItem(teamKey(uniqueID), match.id); } catch { /* storage unavailable */ }
+          }
+        }
+      })
+      .catch(() => {});
+  }, [game, teams, regPendingName, uniqueID]);
+
   if (notFound) {
     return (
       <div className="min-h-screen bg-background bg-animated-gradient flex items-center justify-center p-8 text-foreground">
@@ -194,9 +224,30 @@ export default function BuzzerPage() {
 
   if (!game) return <div className="min-h-screen bg-background flex items-center justify-center text-foreground text-xl">Loading...</div>;
 
+  const handleRegisterTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = regName.trim();
+    if (!trimmed || !game) return;
+    const members = regMembers
+      .split(",")
+      .map((m) => m.trim())
+      .filter(Boolean);
+    await pb.collection("team_registrations").create({
+      game: game.id,
+      name: trimmed,
+      emoji: regEmoji.trim(),
+      color: regColor,
+      members,
+      status: "pending",
+    });
+    setRegPendingName(trimmed);
+    setRegName("");
+    setRegMembers("");
+  };
+
   if (!selectedTeamId) {
     return (
-      <div className="min-h-screen bg-background bg-animated-gradient flex flex-col items-center p-8 text-foreground">
+      <div style={brandingStyleVars(game.settings?.branding)} className="min-h-screen bg-background bg-animated-gradient flex flex-col items-center p-8 text-foreground">
         <h1 className="text-3xl font-bold mb-8 text-accent drop-shadow-md">Join a Team</h1>
         <div className="w-full max-w-md flex flex-col gap-4">
           <AnimatePresence>
@@ -207,13 +258,60 @@ export default function BuzzerPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1 }}
               onClick={() => selectTeam(t.id)}
+              style={t.color ? { borderColor: t.color } : undefined}
               className="bg-primary/90 hover:bg-primary text-xl font-bold py-6 px-4 rounded-xl border-2 border-primary-foreground/20 backdrop-blur-sm transition-all shadow-lg hover:scale-105 active:scale-95"
             >
-              {t.name}
+              {t.emoji ? `${t.emoji} ` : ""}{t.name}
             </motion.button>
           ))}
           </AnimatePresence>
         </div>
+
+        {game.settings?.allowSelfRegistration && (
+          <div className="w-full max-w-md mt-8 bg-card/70 backdrop-blur-md p-6 rounded-2xl border border-border/50 shadow-xl space-y-4">
+            <h2 className="text-lg font-bold text-accent">Register New Team</h2>
+            {regPendingName ? (
+              <p className="text-sm text-muted-foreground font-semibold" data-testid="phone-reg-pending">
+                Waiting for host approval for {regPendingName}...
+              </p>
+            ) : (
+              <form onSubmit={handleRegisterTeam} className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={regEmoji}
+                    onChange={(e) => setRegEmoji(e.target.value)}
+                    aria-label="New Team Emoji"
+                    className="w-16 text-center bg-background"
+                  />
+                  <input
+                    type="color"
+                    value={regColor}
+                    onChange={(e) => setRegColor(e.target.value)}
+                    aria-label="New Team Color"
+                    className="h-10 w-12 rounded border border-border bg-background cursor-pointer"
+                  />
+                  <Input
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder="Team name"
+                    aria-label="New Team Name"
+                    className="bg-background"
+                  />
+                </div>
+                <Input
+                  value={regMembers}
+                  onChange={(e) => setRegMembers(e.target.value)}
+                  placeholder="Members (comma-separated)"
+                  aria-label="New Team Members"
+                  className="bg-background"
+                />
+                <Button type="submit" variant="brand" className="w-full" disabled={!regName.trim()}>
+                  Request to Join
+                </Button>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     );
   }

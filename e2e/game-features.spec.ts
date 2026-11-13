@@ -412,5 +412,46 @@ test("Question types: multiple choice and estimation submit from phone and auto-
   await Promise.all([tv.ctx.close(), p1.ctx.close(), p2.ctx.close()]);
 });
 
+test("Team customization: emoji, color, members, and phone self-registration with host approval", async ({ page: host, browser }) => {
+  await loginAsHost(host);
+  await host.goto("/");
+
+  await host.getByLabel("Team Emoji").fill("🦊");
+  await host.getByPlaceholder("New Team Name").fill("Foxes");
+  await host.getByLabel("Team Members").fill("Alice, Bob");
+  await host.getByRole("button", { name: "Add Team" }).click();
+
+  await host.getByRole("combobox").click();
+  await host.getByRole("option", { name: /Test Board/ }).click();
+  await host.getByRole("button", { name: /Game Rules & Settings/ }).click();
+  await host.getByRole("switch", { name: "Allow Phone Team Registration" }).click();
+  await host.getByRole("button", { name: "Start Game" }).click();
+
+  await expect(host).toHaveURL(/\/game\/[A-Z0-9]+\/host/);
+  const uniqueID = host.url().match(/\/game\/([A-Z0-9]+)\/host/)![1];
+
+  const tv = await openTv(browser, uniqueID);
+  await expect(tv.page.getByText("🦊 Foxes")).toBeVisible();
+  await expect(tv.page.getByText("Alice, Bob")).toBeVisible();
+
+  const phoneCtx = await browser.newContext();
+  const phone = await phoneCtx.newPage();
+  await phone.goto(`/game/${uniqueID}`);
+  await phone.getByLabel("New Team Emoji").fill("🦉");
+  await phone.getByLabel("New Team Name").fill("Owls");
+  await phone.getByLabel("New Team Members").fill("Cara");
+  await phone.getByRole("button", { name: "Request to Join" }).click();
+  await expect(phone.getByTestId("phone-reg-pending")).toContainText("Owls");
+
+  await expect(host.getByTestId("host-team-requests")).toContainText("🦉 Owls");
+  await host.getByRole("button", { name: "Approve" }).click();
+
+  await expect(tv.page.getByText("🦉 Owls")).toBeVisible();
+  await expect(phone.getByText("Team: Owls")).toBeVisible();
+
+  await Promise.all([tv.ctx.close(), phoneCtx.close()]);
+});
+
+
 
 
