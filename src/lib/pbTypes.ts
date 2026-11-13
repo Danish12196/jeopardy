@@ -35,6 +35,8 @@ export interface QuestionCategoryRecord extends RecordModel {
   };
 }
 
+export type MediaKind = "image" | "audio" | "video";
+
 export interface QuestionRecord extends RecordModel {
   question: string;
   answer: string;
@@ -44,6 +46,9 @@ export interface QuestionRecord extends RecordModel {
   difficulty?: number;
   isPublic?: boolean;
   user?: string;
+  media?: string;
+  mediaUrl?: string;
+  mediaType?: MediaKind | "";
   expand?: {
     user?: RecordModel;
     category?: QuestionCategoryRecord;
@@ -120,6 +125,8 @@ export interface BoardQuestion {
   question: string;
   answer: string;
   value: number;
+  mediaUrl?: string;
+  mediaType?: MediaKind;
 }
 
 export interface GameTeam {

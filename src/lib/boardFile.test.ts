@@ -83,4 +83,14 @@ describe("round trips and samples", () => {
     for (const c of csv.board!.categories) expect(c.questions.map((q) => q.value)).toEqual([100, 200, 300, 400, 500]);
     expect(json.board!.categories).toEqual(csv.board!.categories);
   });
+
+  it("round-trips optional mediaUrl in CSV and JSON", () => {
+    const csv = "category,value,question,answer,hint,mediaUrl\nMusic,100,Name this tune,Bohemian Rhapsody,,https://example.com/song.mp3\n";
+    const parsed = parseBoardFile("music.csv", csv);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.board!.categories[0].questions[0].mediaUrl).toBe("https://example.com/song.mp3");
+    const exported = boardToCsv(parsed.board!);
+    expect(exported).toContain("mediaUrl");
+    expect(exported).toContain("https://example.com/song.mp3");
+  });
 });

@@ -159,6 +159,15 @@ const COLLECTIONS = [
       { name: "difficulty", type: "number" },
       { name: "isPublic", type: "bool" },
       relation("user", "users", { single: true, required: true }),
+      {
+        name: "media",
+        type: "file",
+        maxSelect: 1,
+        maxSize: 20971520,
+        mimeTypes: ["image/*", "audio/*", "video/*"],
+      },
+      { name: "mediaUrl", type: "text" },
+      { name: "mediaType", type: "select", maxSelect: 1, values: ["image", "audio", "video"] },
     ],
   },
   {

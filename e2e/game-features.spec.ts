@@ -208,3 +208,70 @@ test("Question timers: buzz timer auto-starts on TV and phone, host can pause, r
 
   await Promise.all([tv.ctx.close(), phone.ctx.close()]);
 });
+
+test("Media questions: image and audio render on host and TV", async ({ page: host, browser }) => {
+  const api = await userPb(HOST_EMAIL, HOST_PASSWORD);
+  const userId = api.authStore.record!.id;
+  const cat = await api.collection("question_categories").create({ name: "MediaCat", user: userId, isPublic: true });
+  const imgUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='orange'/%3E%3C/svg%3E";
+  const q1 = await api.collection("questions").create({
+    question: "What color is this?",
+    answer: "Orange",
+    value: 100,
+    difficulty: 1,
+    category: cat.id,
+    mediaUrl: imgUrl,
+    mediaType: "image",
+    user: userId,
+    isPublic: true,
+  });
+  const q2 = await api.collection("questions").create({
+    question: "Name this song",
+    answer: "Test Song",
+    value: 200,
+    difficulty: 2,
+    category: cat.id,
+    mediaUrl: "https://example.com/test.mp3",
+    mediaType: "audio",
+    user: userId,
+    isPublic: true,
+  });
+  const tpl = await api.collection("game_templates").create({
+    title: "Media Board",
+    categories: [cat.id],
+    questions: [q1.id, q2.id],
+    user: userId,
+    isPublic: true,
+  });
+  const game = await api.collection("games").create({
+    title: "Media Game",
+    uniqueID: `M${Date.now().toString(36).slice(-5).toUpperCase()}`,
+    template: tpl.id,
+    host: userId,
+    teams: [],
+    categories: ["MediaCat"],
+    values: [100, 200],
+    teamScores: [],
+    answeredQuestions: [],
+    buzzRound: 0,
+    showAnswer: false,
+    buzzerUnlocked: false,
+    hostForceShowQuestion: false,
+  });
+
+  await loginAsHost(host);
+  await host.goto(`/game/${game.uniqueID}/host`);
+  const tv = await openTv(browser, game.uniqueID);
+  await expect(tv.page.getByText("MediaCat")).toBeVisible();
+
+  await host.getByRole("button", { name: "100", exact: true }).click();
+  await expect(host.getByTestId("question-media-image")).toBeVisible();
+  await expect(tv.page.getByTestId("question-media-image")).toBeVisible();
+
+  await host.getByRole("button", { name: "Done (Back to Board)" }).click();
+  await host.getByRole("button", { name: "200", exact: true }).click();
+  await expect(host.getByTestId("question-media-audio")).toContainText("Music Round");
+  await expect(tv.page.getByTestId("question-media-audio")).toContainText("Music Round");
+
+  await tv.ctx.close();
+});

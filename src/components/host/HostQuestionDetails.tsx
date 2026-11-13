@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import WildcardPanel from "@/components/host/WildcardPanel";
+import QuestionMedia from "@/components/QuestionMedia";
 import type { BoardQuestion, GameSettings, GameTeam, WildcardState } from "@/lib/pbTypes";
 import type { TeamScore } from "@/lib/scoring";
 
@@ -60,7 +61,12 @@ export default function HostQuestionDetails({
         {selectedTile.value} pts - <span className="text-foreground">{categoryName}</span>
       </h2>
       <div className="text-2xl mb-6 bg-background/50 p-6 rounded-xl border border-border/50 shadow-inner z-10 font-medium leading-relaxed">
-        {selectedTile.questionData.question}
+        <div>{selectedTile.questionData.question}</div>
+        <QuestionMedia
+          mediaUrl={selectedTile.questionData.mediaUrl}
+          mediaType={selectedTile.questionData.mediaType}
+          compact
+        />
       </div>
 
       {/* Host always sees the answer */}

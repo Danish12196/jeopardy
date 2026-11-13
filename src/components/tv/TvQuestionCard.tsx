@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import TimerDisplay from "@/components/TimerDisplay";
+import QuestionMedia from "@/components/QuestionMedia";
 import { buzzGap, type Buzz } from "@/lib/buzzes";
 import type { BoardQuestion, GameTeam, WildcardState } from "@/lib/pbTypes";
 
@@ -98,15 +99,18 @@ export default function TvQuestionCard({
 
       <AnimatePresence mode="wait">
         {showQuestionText ? (
-          <motion.h1
+          <motion.div
             key="question-text"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="text-4xl md:text-7xl font-bold leading-tight md:leading-tight mb-8 z-10 text-foreground drop-shadow-xl"
+            className="flex flex-col items-center z-10 mb-6"
           >
-            {activeQuestion.question}
-          </motion.h1>
+            <h1 className="text-4xl md:text-6xl font-bold leading-tight md:leading-tight text-foreground drop-shadow-xl">
+              {activeQuestion.question}
+            </h1>
+            <QuestionMedia mediaUrl={activeQuestion.mediaUrl} mediaType={activeQuestion.mediaType} />
+          </motion.div>
         ) : (
           <motion.div key="hidden-question" className="h-32" />
         )}
