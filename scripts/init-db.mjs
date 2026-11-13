@@ -184,6 +184,7 @@ const COLLECTIONS = [
       { name: "value", type: "number" },
       relation("category", "question_categories", { single: true, required: true }),
       { name: "difficulty", type: "number" },
+      { name: "tags", type: "json", maxSize: 0 },
       { name: "isPublic", type: "bool" },
       relation("user", "users", { single: true, required: true }),
       {

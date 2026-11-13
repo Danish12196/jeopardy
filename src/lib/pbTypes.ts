@@ -48,6 +48,7 @@ export interface QuestionRecord extends RecordModel {
   value?: number;
   category: string;
   difficulty?: number;
+  tags?: string[];
   isPublic?: boolean;
   user?: string;
   media?: string;

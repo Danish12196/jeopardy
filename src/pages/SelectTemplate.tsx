@@ -213,14 +213,81 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         <GameRulesSettings settings={settings} onChange={setSettings} />
       )}
 
-      <Button
-        onClick={startGame}
-        disabled={!selectedTemplate || starting || selectedTeams.length === 0}
-        variant="brand"
-        className="mt-8 w-full md:w-auto md:min-w-[200px] h-14 text-lg"
-      >
-        {starting ? "Starting Game..." : "Start Game"}
-      </Button>
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <Button
+          onClick={startGame}
+          disabled={!selectedTemplate || starting || selectedTeams.length === 0}
+          variant="brand"
+          className="w-full md:w-auto md:min-w-[200px] h-14 text-lg"
+        >
+          {starting ? "Starting Game..." : "Start Game"}
+        </Button>
+        {selectedTemplate && (
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-14"
+            onClick={async () => {
+              try {
+                const userId = pb.authStore.record?.id;
+                if (!userId) return;
+                const copy = await pb.collection("game_templates").create<GameTemplateRecord>({
+                  title: `${selectedTemplate.title} (Copy)`,
+                  categories: selectedTemplate.categories,
+                  questions: selectedTemplate.questions,
+                  user: userId,
+                  isPublic: false,
+                });
+                setTemplates((prev) => [copy, ...prev]);
+                setSelectedTemplate(copy);
+              } catch {
+                setError("Could not duplicate template.");
+              }
+            }}
+          >
+            Duplicate Template
+          </Button>
+        )}
+      </div>
+
+      {templates.some((t) => t.isPublic && t.user !== pb.authStore.record?.id) && (
+        <div className="mt-8 pt-6 border-t border-border/40 space-y-3" data-testid="public-template-gallery">
+          <h3 className="text-lg font-bold text-foreground">Public Template Gallery</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {templates
+              .filter((t) => t.isPublic && t.user !== pb.authStore.record?.id)
+              .map((tpl) => (
+                <div key={tpl.id} className="bg-background/50 p-4 rounded-xl border border-border/40 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold truncate">{tpl.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {tpl.categories.length} categories • {tpl.questions.length} questions
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      const userId = pb.authStore.record?.id;
+                      if (!userId) return;
+                      const cloned = await pb.collection("game_templates").create<GameTemplateRecord>({
+                        title: `${tpl.title} (Clone)`,
+                        categories: tpl.categories,
+                        questions: tpl.questions,
+                        user: userId,
+                        isPublic: false,
+                      });
+                      setTemplates((prev) => [cloned, ...prev]);
+                      setSelectedTemplate(cloned);
+                    }}
+                  >
+                    Clone
+                  </Button>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
       {error && (

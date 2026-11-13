@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import pb from "@/pb";
 import { boardToCsv, boardToJson, parseBoardFile, type Board, type BoardError } from "@/lib/boardFile";
 import { downloadText, loadTemplateBoard, saveBoardAsTemplate, slug } from "@/lib/templateBoard";
+import { openTdbToBoard } from "@/lib/contentLibrary";
 
 export default function BoardImportExport() {
   const [templates, setTemplates] = useState<any[]>([]);
@@ -102,6 +103,46 @@ export default function BoardImportExport() {
           className="bg-background h-12 pt-2.5"
           onChange={(e) => onFile(e.target.files?.[0])}
         />
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={async () => {
+              setSaved(null);
+              setSaveError(null);
+              setErrors([]);
+              try {
+                const res = await fetch("https://opentdb.com/api.php?amount=10&type=multiple");
+                const json = await res.json();
+                const converted = openTdbToBoard(json.results ?? []);
+                if (converted.categories.length === 0) {
+                  setSaveError("No trivia questions returned.");
+                  return;
+                }
+                setBoard({
+                  title: "Open Trivia DB Pack",
+                  categories: converted.categories.map((c) => ({
+                    name: c.name,
+                    questions: c.questions.map((q) => ({
+                      question: q.question,
+                      answer: q.answer,
+                      hint: "",
+                      value: q.value,
+                    })),
+                  })),
+                });
+                setTitle("Open Trivia DB Pack");
+              } catch {
+                setSaveError("Failed to fetch from Open Trivia DB.");
+              }
+            }}
+          >
+            Fetch from Open Trivia DB
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Tip: For Google Sheets, use File → Download → CSV and upload above.
+          </span>
+        </div>
 
         <AnimatePresence>
           {errors.length > 0 && (

@@ -510,3 +510,22 @@ test("Game history & stats: ending a game records standings and updates leaderbo
   await expect(host.getByTestId("history-games-list")).toContainText("Team 1: 100");
 });
 
+test("Content library: duplicate template and search/filter question library", async ({ page: host }) => {
+  await loginAsHost(host);
+  await host.goto("/");
+
+  // Duplicate template
+  await host.getByRole("combobox").click();
+  await host.getByRole("option", { name: /Test Board/ }).click();
+  await host.getByRole("button", { name: "Duplicate Template" }).click();
+  await expect(host.getByText("Test Board (Copy)", { exact: true })).toBeVisible();
+
+  // Search & filter in Questions tab
+  await host.getByRole("tab", { name: "Questions" }).click();
+  await expect(host.getByTestId("question-library")).toBeVisible();
+  await host.getByLabel("Search Question Library").fill("Linux kernel");
+  await expect(host.getByTestId("question-library")).toContainText("Linux kernel");
+  await expect(host.getByTestId("question-library")).not.toContainText("capital of Japan");
+});
+
+
