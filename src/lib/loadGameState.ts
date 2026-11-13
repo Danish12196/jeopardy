@@ -20,6 +20,10 @@ export type LoadedGameState =
       teams: GameTeam[];
     };
 
+export function defaultRowValues(rowCount: number): number[] {
+  return Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
+}
+
 export function buildBoardFromRecords(
   categoryRecords: QuestionCategoryRecord[],
   allQuestions: QuestionRecord[]

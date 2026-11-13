@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import pb from "@/pb";
 import { currentQueue, type Buzz } from "@/lib/buzzes";
 
@@ -6,12 +6,15 @@ import { currentQueue, type Buzz } from "@/lib/buzzes";
  * Live buzz queue for one game and round, in server order.
  *
  * Subscribes once per game (and again when `reloadKey` changes, e.g. after a
- * reconnect) and keeps every buzz it sees; the round only filters. Changing
- * the subscription on every round meant unsubscribing and resubscribing the
- * same topic in quick succession, which could drop events.
+ * reconnect) and keeps buzzes for the current/upcoming rounds; old rounds are
+ * pruned when `round` advances. Changing the subscription on every round meant
+ * unsubscribing and resubscribing the same topic in quick succession, which
+ * could drop events.
  */
 export function useBuzzes(gameId: string | undefined, round: number, reloadKey = 0) {
   const [all, setAll] = useState<Buzz[]>([]);
+  const roundRef = useRef(round);
+  roundRef.current = round;
 
   const add = (incoming: Buzz[]) =>
     setAll((prev) => {
@@ -32,7 +35,7 @@ export function useBuzzes(gameId: string | undefined, round: number, reloadKey =
         (e) => {
           if (cancelled || e.record.game !== gameId) return;
           if (e.action === "delete") setAll((prev) => prev.filter((x) => x.id !== e.record.id));
-          else add([e.record]);
+          else if (e.record.round >= roundRef.current) add([e.record]);
         },
         { filter: pb.filter("game = {:game}", { game: gameId }) }
       );
@@ -45,8 +48,13 @@ export function useBuzzes(gameId: string | undefined, round: number, reloadKey =
     };
   }, [gameId, reloadKey]);
 
-  // Load what's already there for this round (after a reload, or a late join).
+  // Prune older rounds when round advances, and load what's already there for
+  // this round (after a reload, or a late join).
   useEffect(() => {
+    setAll((prev) => {
+      const filtered = prev.filter((x) => x.round >= round);
+      return filtered.length === prev.length ? prev : filtered;
+    });
     if (!gameId) return;
     let cancelled = false;
     pb.collection("buzzes")

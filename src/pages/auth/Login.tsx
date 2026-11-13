@@ -9,16 +9,21 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setError("");
+    setSubmitting(true);
     try {
       await pb.collection("users").authWithPassword(email, password);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to login");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to login");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -66,8 +71,8 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          <Button type="submit" variant="brand" className="w-full h-14 text-lg">
-            Login
+          <Button type="submit" variant="brand" disabled={submitting} className="w-full h-14 text-lg">
+            {submitting ? "Logging in..." : "Login"}
           </Button>
         </form>
 

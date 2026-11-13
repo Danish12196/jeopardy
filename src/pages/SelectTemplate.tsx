@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 import { makeGameCode } from "@/lib/gameCode";
+import { defaultRowValues } from "@/lib/loadGameState";
 import type { GameTemplateRecord, QuestionCategoryRecord, QuestionRecord } from "@/lib/pbTypes";
 import {
   Select,
@@ -52,6 +53,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         setTemplates(sorted);
       } catch (err) {
         console.error("Failed to fetch templates:", err);
+        setError("Failed to load templates. Please refresh and try again.");
       }
     };
     fetchTemplates();
@@ -61,6 +63,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
     const fetchTemplateDetails = async () => {
       if (!selectedTemplate) return;
       try {
+        setError(null);
         const categoryIds = selectedTemplate.categories ?? [];
         const questionIds = selectedTemplate.questions ?? [];
 
@@ -87,9 +90,10 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
           if (qCount > maxQs) maxQs = qCount;
         }
 
-        setValues(Array.from({ length: maxQs }, (_, i) => (i + 1) * 100));
+        setValues(defaultRowValues(maxQs));
       } catch (err) {
         console.error("Failed to fetch template details:", err);
+        setError("Failed to load template details.");
       }
     };
     fetchTemplateDetails();
