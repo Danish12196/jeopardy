@@ -142,6 +142,9 @@ export interface GameRecord extends RecordModel {
   timerEndsAt?: string;
   timerType?: "buzz" | "answer" | "";
   timerPausedRemaining?: number | null;
+  paused?: boolean;
+  lockedTeams?: string[];
+  cohostCode?: string;
   expand?: {
     template?: GameTemplateRecord;
     teams?: TeamRecord[];

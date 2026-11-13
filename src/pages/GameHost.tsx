@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,12 @@ import { useHostGame } from "@/hooks/useHostGame";
 import { effectiveBoardValues } from "@/lib/scoring";
 import { brandingStyleVars } from "@/lib/branding";
 import { saveLocalSoundPrefs } from "@/lib/sound";
+import { HOST_SHORTCUTS, resolveHostShortcut } from "@/lib/shortcuts";
 
 export default function GameHost() {
   const { uniqueID } = useParams();
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const {
     game,
@@ -74,7 +76,41 @@ export default function GameHost() {
     pendingRegistrations,
     approveRegistration,
     rejectRegistration,
+    togglePause,
+    reopenQuestion,
+    editActiveQuestion,
+    toggleLockTeam,
+    kickTeam,
+    ensureCohostCode,
   } = useHostGame(uniqueID);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const action = resolveHostShortcut({
+        key: e.key,
+        targetTag: (e.target as HTMLElement | null)?.tagName,
+        hasActiveQuestion: Boolean(selectedTile),
+        isModalOpen: shortcutsOpen,
+      });
+      if (!action) return;
+      if (action === "toggleBuzzer") {
+        e.preventDefault();
+        void toggleBuzzer(!game?.buzzerUnlocked);
+      } else if (action === "revealAnswer") {
+        void revealAnswer();
+      } else if (action === "doneQuestion") {
+        void clearQuestion();
+      } else if (action === "clearBuzzers") {
+        void clearBuzzers();
+      } else if (action === "togglePause") {
+        void togglePause();
+      } else if (action === "toggleHelp") {
+        setShortcutsOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
   const values = effectiveBoardValues(game?.values, rowCount, settings);
@@ -137,6 +173,19 @@ export default function GameHost() {
               sound: { ...settings.sound, muted: nextMuted },
             },
           });
+        }}
+        paused={Boolean(game.paused)}
+        onTogglePause={() => void togglePause()}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onCopyCohostLink={async () => {
+          try {
+            const code = await ensureCohostCode();
+            if (!code) return;
+            const url = `${window.location.origin}/game/${uniqueID}/host?cohost=${code}`;
+            await navigator.clipboard.writeText(url);
+          } catch {
+            setActionError("Could not copy co-host link to clipboard.");
+          }
         }}
       />
 
@@ -222,6 +271,7 @@ export default function GameHost() {
                 usedQuestions={usedQuestions}
                 wildcards={wildcards}
                 onSelectTile={selectQuestion}
+                onReopenTile={reopenQuestion}
               />
             ) : (
               <HostQuestionDetails
@@ -243,6 +293,7 @@ export default function GameHost() {
                 onRevealAnswer={revealAnswer}
                 onCancel={cancelQuestion}
                 onDone={clearQuestion}
+                onEditQuestion={editActiveQuestion}
               />
             )}
           </AnimatePresence>
@@ -309,6 +360,9 @@ export default function GameHost() {
             onApplyAdjust={applyAdjust}
             onUpdateScore={updateTeamScore}
             onUndo={undoScore}
+            lockedTeams={game.lockedTeams ?? []}
+            onToggleLock={toggleLockTeam}
+            onKickTeam={kickTeam}
           />
         </div>
       </div>
@@ -318,6 +372,35 @@ export default function GameHost() {
         onOpenChange={setConfirmEndOpen}
         onConfirm={handleEndGame}
       />
+
+      {shortcutsOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          data-testid="shortcuts-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard Shortcuts"
+        >
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-foreground">Keyboard Shortcuts</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShortcutsOpen(false)}>
+                Close
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {HOST_SHORTCUTS.map((s) => (
+                <div key={s.key} className="flex items-center justify-between text-sm py-1.5 border-b border-border/40 last:border-0">
+                  <span className="text-muted-foreground">{s.label}</span>
+                  <kbd className="px-2 py-0.5 rounded bg-background border border-border font-mono text-xs font-bold">
+                    {s.key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

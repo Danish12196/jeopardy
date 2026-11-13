@@ -317,12 +317,16 @@ export default function BuzzerPage() {
   }
 
   const selectedTeamName = teams.find(t => t.id === selectedTeamId)?.name;
+  const isTeamLocked = Boolean(selectedTeamId && game.lockedTeams?.includes(selectedTeamId));
+  const isPaused = Boolean(game.paused);
 
   // Determine buzzer state
   let buzzerState: "locked" | "unlocked" | "buzzed" | "too-late" = "locked";
 
   if (myPosition || pending) {
       buzzerState = "buzzed";
+  } else if (isPaused || isTeamLocked) {
+      buzzerState = "locked";
   } else if (game.buzzerUnlocked) {
       buzzerState = "unlocked";
   } else if (buzzQueue.length > 0) {
@@ -332,6 +336,16 @@ export default function BuzzerPage() {
   return (
     <div style={brandingStyleVars(game.settings?.branding)} className="min-h-screen bg-background bg-animated-gradient flex flex-col p-4 md:p-8 text-foreground">
       <ReconnectingBadge show={!connected} />
+      {isPaused && (
+        <div className="mb-4 rounded-xl bg-accent/20 border border-accent px-4 py-3 text-center font-bold text-accent" data-testid="game-paused-overlay">
+          Game Paused by Host
+        </div>
+      )}
+      {isTeamLocked && (
+        <div className="mb-4 rounded-xl bg-destructive/20 border border-destructive px-4 py-3 text-center font-bold text-destructive" data-testid="phone-team-locked">
+          Your team is locked by the host.
+        </div>
+      )}
       <div className="flex justify-between items-center mb-8 bg-card/40 backdrop-blur-md p-4 rounded-2xl border border-border/50 shadow-md">
         <div className="text-lg md:text-xl font-bold">Team: <span className="text-accent drop-shadow-sm">{selectedTeamName}</span></div>
         <button

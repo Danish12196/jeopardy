@@ -8,6 +8,7 @@ type Props = {
   usedQuestions: string[];
   wildcards: string[];
   onSelectTile: (row: number, col: number, value: number, q: BoardQuestion) => void;
+  onReopenTile?: (questionId: string) => void;
 };
 
 export default function HostBoardGrid({
@@ -17,6 +18,7 @@ export default function HostBoardGrid({
   usedQuestions,
   wildcards,
   onSelectTile,
+  onReopenTile,
 }: Props) {
   const cols = Math.max(categories.length, 1);
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
@@ -61,17 +63,26 @@ export default function HostBoardGrid({
             key={i}
             whileHover={!isUsed ? { scale: 1.05, zIndex: 10 } : {}}
             whileTap={!isUsed ? { scale: 0.95 } : {}}
-            onClick={() => !isUsed && onSelectTile(row, col, value, q)}
-            aria-label={`${value}${isWildcard ? " Wildcard" : ""}`}
+            onClick={() => {
+              if (!isUsed) onSelectTile(row, col, value, q);
+              else if (onReopenTile) onReopenTile(q.id);
+            }}
+            aria-label={isUsed && onReopenTile ? `Reopen ${value}` : `${value}${isWildcard ? " Wildcard" : ""}`}
+            title={isUsed && onReopenTile ? "Click to reopen question" : undefined}
             className={`relative flex items-center justify-center py-6 text-xl font-bold border transition-colors rounded-sm ${
               isWildcard && !isUsed ? "border-accent border-2" : "border-border/50"
             } ${
               isUsed
-                ? "bg-card/20 text-muted-foreground cursor-not-allowed"
+                ? "bg-card/20 text-muted-foreground hover:bg-card/40 cursor-pointer"
                 : "bg-tile text-accent hover:bg-accent hover:text-accent-foreground shadow-md cursor-pointer"
             }`}
           >
             {value}
+            {isUsed && onReopenTile && (
+              <span className="absolute bottom-1 right-1 text-[10px] leading-none bg-secondary text-secondary-foreground px-1 py-0.5 rounded">
+                Reopen
+              </span>
+            )}
             {isWildcard && !isUsed && (
               <span className="absolute top-1 right-1 text-[10px] leading-none bg-accent text-accent-foreground px-1 py-0.5 rounded font-bold">
                 W

@@ -115,6 +115,33 @@ export default function GameBoard() {
   });
 
   useEffect(() => {
+    const qId = live?.currentActiveQuestion;
+    if (!qId) return;
+    let active = true;
+    const unsubPromise = pb
+      .collection("questions")
+      .subscribe(qId, (e) => {
+        if (!active || e.action !== "update") return;
+        setQuestions((prev) =>
+          prev.map((col) =>
+            col.map((q) =>
+              q.id === qId
+                ? { ...q, question: e.record.question ?? q.question, answer: e.record.answer ?? q.answer }
+                : q
+            )
+          )
+        );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      void unsubPromise.then((unsub) => {
+        if (typeof unsub === "function") unsub();
+      });
+    };
+  }, [live?.currentActiveQuestion]);
+
+  useEffect(() => {
     if (buzzerQueue.length > lastBuzzerCountRef.current) {
       playSound("buzz", soundSettings);
     }
@@ -187,7 +214,20 @@ export default function GameBoard() {
       )}
       <TvScoreboard teams={teams} />
 
-      <div className="flex-1 flex items-center justify-center w-full overflow-x-auto pb-4">
+      <div className="flex-1 flex items-center justify-center w-full overflow-x-auto pb-4 relative">
+        {live?.paused && (
+          <div
+            className="fixed inset-0 z-50 bg-background/85 backdrop-blur-md flex items-center justify-center"
+            data-testid="game-paused-overlay"
+          >
+            <div className="bg-card border-4 border-accent rounded-3xl px-12 py-8 text-center shadow-2xl">
+              <h2 className="text-4xl md:text-6xl font-black text-accent uppercase tracking-widest">
+                Game Paused
+              </h2>
+              <p className="text-muted-foreground mt-2 text-lg">Waiting for the host to resume...</p>
+            </div>
+          </div>
+        )}
         <AnimatePresence mode="wait">
           {live?.gameOver ? (
             <GameOverScreen key="game-over" teams={teams} scores={live.teamScores || []} />
