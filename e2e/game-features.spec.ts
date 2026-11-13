@@ -483,7 +483,7 @@ test("Host tools: pause/resume, lock team, reopen tile, edit Q/A, and keyboard s
   await host.getByRole("button", { name: "Edit Q/A" }).click();
   await host.getByLabel("Edit Question").fill("Edited question text?");
   await host.getByRole("button", { name: "Save Q/A" }).click();
-  await expect(tv.page.getByText("Edited question text?")).toBeVisible();
+  await expect(tv.page.getByRole("heading", { name: "Edited question text?" })).toBeVisible();
 
   await host.getByRole("button", { name: "Done (Back to Board)" }).click();
   const reopenBtn = host.getByRole("button", { name: "Reopen 100" }).first();
@@ -575,4 +575,38 @@ test("Game modes: solo route shows the solo banner", async ({ page: host }) => {
   await api.collection("games").update(game.id, { settings: { gameMode: "solo" } });
   await host.goto(`/game/${game.uniqueID}/solo`);
   await expect(host.getByTestId("solo-banner")).toBeVisible();
+});
+
+test("Spectator & accessibility: watch route, large text, colorblind palette, language, live region", async ({ page: host, browser }) => {
+  const { game } = await setup(host);
+  await expect(host.getByRole("link", { name: "Spectator Link" })).toHaveAttribute("href", `/game/${game.uniqueID}/watch`);
+
+  const ctx = await browser.newContext();
+  const watch = await ctx.newPage();
+  await watch.goto(`/game/${game.uniqueID}/watch`);
+  await expect(watch.getByTestId("watch-badge")).toContainText(game.uniqueID);
+  await expect(watch.getByTestId("tv-score-Team 1")).toBeVisible();
+
+  // Large text scales the root font size and persists across reloads.
+  await watch.getByTestId("tv-large-text-toggle").click();
+  await expect(watch.getByTestId("tv-large-text-toggle")).toHaveAttribute("aria-pressed", "true");
+  expect(await watch.evaluate(() => document.documentElement.style.fontSize)).toBe("125%");
+  await watch.reload();
+  await expect(watch.getByTestId("tv-large-text-toggle")).toHaveAttribute("aria-pressed", "true");
+
+  // Colorblind palette swaps the accent color on the TV root.
+  await watch.getByTestId("tv-colorblind-toggle").click();
+  await expect(watch.getByTestId("tv-colorblind-toggle")).toHaveAttribute("aria-pressed", "true");
+  const accent = await watch.locator("[data-theme]").first().evaluate((el) => (el as HTMLElement).style.getPropertyValue("--accent"));
+  expect(accent).toBe("#56B4E9");
+
+  // Language switcher translates TV chrome.
+  await watch.getByTestId("tv-language-select").selectOption("es");
+  await expect(watch.getByTestId("watch-badge")).toContainText("Vista de espectador");
+  await expect(watch.getByTestId("tv-sound-toggle")).toContainText("Sonido de TV");
+
+  // Live region announces a score change for screen readers.
+  await host.getByRole("button", { name: "Correct: add points to Team 1" }).click();
+  await expect(watch.getByTestId("tv-live-region")).toContainText("Team 1 lidera con 100 puntos");
+  await ctx.close();
 });

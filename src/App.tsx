@@ -39,6 +39,7 @@ function App() {
           <Route path="/game" element={<GameJoinPage />} />
           <Route path="/game/:uniqueID" element={<BuzzerPage />} />
           <Route path="/game/:uniqueID/board" element={<GameBoard />} />
+          <Route path="/game/:uniqueID/watch" element={<GameBoard watch />} />
           <Route path="/game/:uniqueID/host" element={<PrivateRoute><GameHost /></PrivateRoute>} />
           <Route path="/game/:uniqueID/solo" element={<PrivateRoute><GameHost solo /></PrivateRoute>} />
         </Routes>

@@ -18,8 +18,11 @@ import { brandingStyleVars, normalizeBranding } from "@/lib/branding";
 import type { BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
 import { effectiveBoardValues, scoreOf } from "@/lib/scoring";
 import { roundMultiplier, scaleQuestions } from "@/lib/gameModes";
+import { a11yStyleVars, buildAnnouncement, loadA11yPrefs, saveA11yPrefs, type A11yPrefs } from "@/lib/a11y";
+import { translate } from "@/lib/i18n";
+import A11yControls from "@/components/tv/A11yControls";
 
-export default function GameBoard() {
+export default function GameBoard({ watch = false }: { watch?: boolean } = {}) {
   const { uniqueID } = useParams();
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -46,6 +49,20 @@ export default function GameBoard() {
     () => scaleQuestions(questions, roundMultiplier(live?.settings, live?.round)),
     [questions, live?.settings, live?.round]
   );
+  const [a11y, setA11y] = useState<A11yPrefs>(() => loadA11yPrefs());
+  const t = (key: Parameters<typeof translate>[1], vars?: Record<string, string | number>) =>
+    translate(a11y.locale, key, vars);
+  const changeA11y = (next: A11yPrefs) => {
+    setA11y(next);
+    saveA11yPrefs(next);
+  };
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.fontSize = a11y.largeText ? "125%" : "";
+    return () => {
+      root.style.fontSize = "";
+    };
+  }, [a11y.largeText]);
   const gameMode = live?.settings?.gameMode ?? "classic";
   const eliminatedNames = teams
     .filter((t) => (live?.eliminatedTeams ?? []).includes(t.id))
@@ -71,6 +88,18 @@ export default function GameBoard() {
     if (!id) return null;
     return scaledQuestions.flat().find((q) => q.id === id) ?? null;
   }, [scaledQuestions, live?.currentActiveQuestion]);
+
+  const leader = [...teams].sort((a, b) => b.score - a.score)[0];
+  const announcement = buildAnnouncement({
+    locale: a11y.locale,
+    gameOver: live?.gameOver,
+    paused: live?.paused,
+    question: activeQuestion?.question ?? null,
+    answer: activeQuestion?.answer ?? null,
+    showAnswer,
+    firstBuzzTeam: teams.find((tm) => tm.id === buzzerQueue[0]?.team)?.name ?? null,
+    leader: leader && leader.score !== 0 ? { name: leader.name, score: leader.score } : null,
+  });
 
   const lastBuzzerCountRef = useRef(0);
   const lastWildcardRef = useRef<string | null>(null);
@@ -195,19 +224,31 @@ export default function GameBoard() {
 
   return (
     <div
-      style={brandingStyleVars(live?.settings?.branding)}
+      style={{ ...brandingStyleVars(live?.settings?.branding), ...a11yStyleVars(a11y) }}
       data-theme={branding.tvTheme}
       className="min-h-screen flex flex-col p-4 md:p-8 overflow-hidden bg-background text-foreground"
     >
       <ReconnectingBadge show={!connected} />
-      <div className="flex justify-end mb-2">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="tv-live-region">
+        {announcement}
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-2">
+        {watch && (
+          <span
+            className="mr-auto text-xs px-3 py-1 rounded-full bg-secondary text-secondary-foreground font-mono"
+            data-testid="watch-badge"
+          >
+            {t("tv.spectator")} · {uniqueID}
+          </span>
+        )}
+        <A11yControls prefs={a11y} onChange={changeA11y} />
         <button
           type="button"
           onClick={() => setTvMuted((m) => !m)}
           className="text-xs px-3 py-1 rounded-full bg-card/60 border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
           data-testid="tv-sound-toggle"
         >
-          {soundSettings.muted ? "TV Sound: Muted" : "TV Sound: On"}
+          {soundSettings.muted ? t("tv.soundMuted") : t("tv.soundOn")}
         </button>
       </div>
       {(branding.gameTitle || branding.logoUrl) && (
@@ -224,12 +265,12 @@ export default function GameBoard() {
       )}
       {(gameMode === "rounds" || gameMode === "elimination") && (
         <div className="text-center mb-2 text-sm font-mono text-muted-foreground" data-testid="tv-round">
-          Round {live?.round ?? 1}
+          {t("tv.round", { n: live?.round ?? 1 })}
         </div>
       )}
       {eliminatedNames.length > 0 && (
         <div className="text-center mb-2 text-sm text-destructive" data-testid="tv-eliminated">
-          Eliminated: {eliminatedNames.join(", ")}
+          {t("tv.eliminated", { names: eliminatedNames.join(", ") })}
         </div>
       )}
       <TvScoreboard teams={teams} />
@@ -242,9 +283,9 @@ export default function GameBoard() {
           >
             <div className="bg-card border-4 border-accent rounded-3xl px-12 py-8 text-center shadow-2xl">
               <h2 className="text-4xl md:text-6xl font-black text-accent uppercase tracking-widest">
-                Game Paused
+                {t("tv.paused")}
               </h2>
-              <p className="text-muted-foreground mt-2 text-lg">Waiting for the host to resume...</p>
+              <p className="text-muted-foreground mt-2 text-lg">{t("tv.pausedHint")}</p>
             </div>
           </div>
         )}
@@ -255,7 +296,7 @@ export default function GameBoard() {
             role="alert"
           >
             <div className="bg-card border-4 border-accent rounded-3xl px-12 py-8 text-center shadow-2xl max-w-3xl">
-              <h2 className="text-3xl font-black text-accent uppercase tracking-widest">Tiebreaker</h2>
+              <h2 className="text-3xl font-black text-accent uppercase tracking-widest">{t("tv.tiebreaker")}</h2>
               <p className="text-3xl md:text-5xl font-bold mt-4">{tiebreaker.question}</p>
               {tiebreaker.showAnswer && (
                 <p className="text-2xl md:text-4xl text-primary mt-6" data-testid="tv-tiebreaker-answer">

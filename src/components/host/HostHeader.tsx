@@ -77,6 +77,11 @@ export default function HostHeader({
             Open TV Board
           </Link>
         </Button>
+        <Button asChild variant="secondary" size="sm">
+          <Link to={`/game/${uniqueID}/watch`} target="_blank" rel="noopener noreferrer">
+            Spectator Link
+          </Link>
+        </Button>
         <Button variant="secondary" size="sm" onClick={copyJoinLink}>
           {copiedLink ? "Copied!" : "Copy Join Link"}
         </Button>
