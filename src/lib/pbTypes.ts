@@ -82,6 +82,15 @@ export interface BrandingSettings {
   backgroundStyle?: BackgroundStyle;
 }
 
+export type SoundEvent = "buzz" | "correct" | "wrong" | "timerEnd" | "allInReveal" | "wildcard";
+
+export interface SoundSettings {
+  muted?: boolean;
+  volume?: number;
+  enabledEvents?: Partial<Record<SoundEvent, boolean>>;
+  customUrls?: Partial<Record<SoundEvent, string>>;
+}
+
 export interface GameSettings {
   wrongPenalty?: WrongPenalty;
   stealEnabled?: boolean;
@@ -95,6 +104,7 @@ export interface GameSettings {
   buzzTimerSeconds?: number;
   answerTimerSeconds?: number;
   branding?: BrandingSettings;
+  sound?: SoundSettings;
 }
 
 export interface GameRecord extends RecordModel {

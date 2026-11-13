@@ -13,7 +13,7 @@ import TvBoardGrid from "@/components/tv/TvBoardGrid";
 import TvQuestionCard from "@/components/tv/TvQuestionCard";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 import { loadGameState } from "@/lib/loadGameState";
-import { playBuzzerTone } from "@/lib/sound";
+import { loadLocalSoundPrefs, playSound } from "@/lib/sound";
 import { brandingStyleVars, normalizeBranding } from "@/lib/branding";
 import type { BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
 import { effectiveBoardValues, scoreOf } from "@/lib/scoring";
@@ -32,7 +32,15 @@ export default function GameBoard() {
   const [buzzRound, setBuzzRound] = useState(0);
   const { connected, reloadKey } = useLiveConnection();
   const [live, setLive] = useState<GameRecord | null>(null);
+  const [tvMuted, setTvMuted] = useState(() => Boolean(loadLocalSoundPrefs().muted));
   const branding = normalizeBranding(live?.settings?.branding);
+  const soundSettings = useMemo(
+    () => ({
+      ...live?.settings?.sound,
+      muted: tvMuted || Boolean(live?.settings?.sound?.muted),
+    }),
+    [live?.settings?.sound, tvMuted]
+  );
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
   const values = effectiveBoardValues(live?.values, rowCount, live?.settings);
   const allInPhase: string = live?.allInPhase || "";
@@ -55,6 +63,8 @@ export default function GameBoard() {
   }, [questions, live?.currentActiveQuestion]);
 
   const lastBuzzerCountRef = useRef(0);
+  const lastWildcardRef = useRef<string | null>(null);
+  const lastAllInRevealedRef = useRef(0);
 
   useEffect(() => {
     const fetchGame = async () => {
@@ -95,10 +105,26 @@ export default function GameBoard() {
 
   useEffect(() => {
     if (buzzerQueue.length > lastBuzzerCountRef.current) {
-      playBuzzerTone();
+      playSound("buzz", soundSettings);
     }
     lastBuzzerCountRef.current = buzzerQueue.length;
-  }, [buzzerQueue.length]);
+  }, [buzzerQueue.length, soundSettings]);
+
+  useEffect(() => {
+    const wq = wildcard?.question ?? null;
+    if (wq && wq !== lastWildcardRef.current) {
+      playSound("wildcard", soundSettings);
+    }
+    lastWildcardRef.current = wq;
+  }, [wildcard?.question, soundSettings]);
+
+  useEffect(() => {
+    const rev = live?.allIn?.revealed ?? 0;
+    if (rev > lastAllInRevealedRef.current) {
+      playSound("allInReveal", soundSettings);
+    }
+    lastAllInRevealedRef.current = rev;
+  }, [live?.allIn?.revealed, soundSettings]);
 
   if (notFound) {
     return (
@@ -126,6 +152,16 @@ export default function GameBoard() {
       className="min-h-screen flex flex-col p-4 md:p-8 overflow-hidden bg-background text-foreground"
     >
       <ReconnectingBadge show={!connected} />
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={() => setTvMuted((m) => !m)}
+          className="text-xs px-3 py-1 rounded-full bg-card/60 border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="tv-sound-toggle"
+        >
+          {soundSettings.muted ? "TV Sound: Muted" : "TV Sound: On"}
+        </button>
+      </div>
       {(branding.gameTitle || branding.logoUrl) && (
         <div className="flex items-center justify-center gap-3 mb-4" data-testid="tv-branding-header">
           {branding.logoUrl && (

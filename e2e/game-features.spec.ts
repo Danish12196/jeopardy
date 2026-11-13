@@ -303,3 +303,29 @@ test("Themes & branding: custom title, accent color, and light TV theme render o
   await tv.ctx.close();
 });
 
+test("Sound & effects: mute setting and host toggle sync to TV", async ({ page: host, browser }) => {
+  await loginAsHost(host);
+  await host.goto("/");
+  await host.getByRole("button", { name: "Team 1" }).click();
+  await host.getByRole("button", { name: "Team 2" }).click();
+  await host.getByRole("combobox").click();
+  await host.getByRole("option", { name: /Test Board/ }).click();
+  await host.getByRole("button", { name: /Game Rules & Settings/ }).click();
+  await host.getByRole("switch", { name: "Mute All Game Sounds" }).click();
+  await host.getByRole("button", { name: "Start Game" }).click();
+
+  await expect(host).toHaveURL(/\/game\/[A-Z0-9]+\/host/);
+  const uniqueID = host.url().match(/\/game\/([A-Z0-9]+)\/host/)![1];
+
+  await expect(host.getByTestId("host-sound-toggle")).toHaveText("Sound: Muted");
+  const tv = await openTv(browser, uniqueID);
+  await expect(tv.page.getByTestId("tv-sound-toggle")).toHaveText("TV Sound: Muted");
+
+  await host.getByTestId("host-sound-toggle").click();
+  await expect(host.getByTestId("host-sound-toggle")).toHaveText("Sound: On");
+  await expect(tv.page.getByTestId("tv-sound-toggle")).toHaveText("TV Sound: On");
+
+  await tv.ctx.close();
+});
+
+

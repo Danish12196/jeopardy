@@ -1,6 +1,7 @@
 // Score helpers shared by the host, TV and phones.
 import type { GameSettings, WrongPenalty } from "./pbTypes";
 import { DEFAULT_BRANDING, normalizeBranding } from "./branding";
+import { DEFAULT_SOUND_SETTINGS, normalizeSoundSettings } from "./sound";
 
 export type TeamScore = { id: string; score: number };
 
@@ -17,6 +18,7 @@ export const DEFAULT_GAME_SETTINGS: Required<GameSettings> = {
   buzzTimerSeconds: 0,
   answerTimerSeconds: 0,
   branding: DEFAULT_BRANDING,
+  sound: DEFAULT_SOUND_SETTINGS,
 };
 
 export function normalizeSettings(settings?: GameSettings | null): Required<GameSettings> {
@@ -39,6 +41,7 @@ export function normalizeSettings(settings?: GameSettings | null): Required<Game
     buzzTimerSeconds: Number.isFinite(buzzTimer) && buzzTimer >= 0 ? Math.round(buzzTimer) : 0,
     answerTimerSeconds: Number.isFinite(answerTimer) && answerTimer >= 0 ? Math.round(answerTimer) : 0,
     branding: normalizeBranding(settings?.branding),
+    sound: normalizeSoundSettings(settings?.sound),
   };
 }
 

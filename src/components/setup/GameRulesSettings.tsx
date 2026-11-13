@@ -317,6 +317,71 @@ export default function GameRulesSettings({ settings, onChange }: Props) {
                 </div>
               </div>
             </div>
+
+            <div className="pt-2 border-t border-border/40 space-y-3">
+              <div className="font-semibold text-foreground">Sound & Effects</div>
+              <div className="flex items-center justify-between gap-4">
+                <label htmlFor="sound-muted" className="font-semibold cursor-pointer">
+                  Mute All Game Sounds
+                </label>
+                <Switch
+                  id="sound-muted"
+                  checked={Boolean(s.sound.muted)}
+                  onCheckedChange={(checked) =>
+                    update({ sound: { ...s.sound, muted: checked } })
+                  }
+                />
+              </div>
+              <div>
+                <label htmlFor="sound-volume" className="block font-semibold mb-1.5">
+                  Master Volume ({Math.round((s.sound.volume ?? 0.7) * 100)}%)
+                </label>
+                <input
+                  id="sound-volume"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={s.sound.volume ?? 0.7}
+                  onChange={(e) =>
+                    update({ sound: { ...s.sound, volume: Number(e.target.value) } })
+                  }
+                  className="w-full accent-accent"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {(
+                  [
+                    ["buzz", "Buzz Sound"],
+                    ["correct", "Correct Answer"],
+                    ["wrong", "Wrong Answer"],
+                    ["timerEnd", "Timer Expired"],
+                    ["wildcard", "Wildcard Reveal"],
+                    ["allInReveal", "All In Reveal"],
+                  ] as const
+                ).map(([evt, label]) => (
+                  <label key={evt} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={s.sound.enabledEvents?.[evt] !== false}
+                      onChange={(e) =>
+                        update({
+                          sound: {
+                            ...s.sound,
+                            enabledEvents: {
+                              ...s.sound.enabledEvents,
+                              [evt]: e.target.checked,
+                            },
+                          },
+                        })
+                      }
+                      className="h-4 w-4 accent-accent"
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
