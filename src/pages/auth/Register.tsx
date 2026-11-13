@@ -11,15 +11,18 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setError("");
     if (password !== passwordConfirm) {
       setError("Passwords do not match");
       return;
     }
+    setSubmitting(true);
     try {
       await pb.collection("users").create({
         username,
@@ -29,8 +32,10 @@ export default function Register() {
       });
       await pb.collection("users").authWithPassword(email, password);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to register");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to register");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -93,8 +98,8 @@ export default function Register() {
             )}
           </AnimatePresence>
 
-          <Button type="submit" variant="brand" className="w-full h-14 text-lg">
-            Create Account
+          <Button type="submit" variant="brand" disabled={submitting} className="w-full h-14 text-lg">
+            {submitting ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
         <div className="mt-8 text-center text-sm text-muted-foreground relative z-10">

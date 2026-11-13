@@ -12,7 +12,7 @@ import TvScoreboard from "@/components/tv/TvScoreboard";
 import TvBoardGrid from "@/components/tv/TvBoardGrid";
 import TvQuestionCard from "@/components/tv/TvQuestionCard";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
-import { loadGameState } from "@/lib/loadGameState";
+import { defaultRowValues, loadGameState } from "@/lib/loadGameState";
 import { playBuzzerTone } from "@/lib/sound";
 import type { BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
 import { scoreOf } from "@/lib/scoring";
@@ -25,9 +25,11 @@ export default function GameBoard() {
   const [teams, setTeams] = useState<GameTeam[]>([]);
   const [usedQuestions, setUsedQuestions] = useState<string[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
-  const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
+  const values = defaultRowValues(rowCount);
 
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export default function GameBoard() {
     const fetchGame = async () => {
       try {
         setNotFound(false);
+        setLoadError(null);
         const result = await loadGameState(pb, uniqueID);
         if (result.notFound) {
           setNotFound(true);
@@ -75,11 +78,12 @@ export default function GameBoard() {
         setGameId(g.id);
       } catch (err) {
         console.error("Board fetch error:", err);
+        setLoadError("Could not load game board. Check your connection and try again.");
       }
     };
 
     fetchGame();
-  }, [uniqueID]);
+  }, [uniqueID, retryKey]);
 
   useGameSubscription(gameId, reloadKey, (g) => {
     setUsedQuestions(g.answeredQuestions || []);
@@ -96,6 +100,31 @@ export default function GameBoard() {
     }
     lastBuzzerCountRef.current = buzzerQueue.length;
   }, [buzzerQueue.length]);
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-background bg-animated-gradient flex items-center justify-center p-8 text-foreground">
+        <div className="bg-card/60 backdrop-blur-md p-8 rounded-2xl border border-border/50 shadow-xl max-w-md text-center space-y-4">
+          <h1 className="text-2xl font-bold text-destructive">Connection Error</h1>
+          <p className="text-muted-foreground">{loadError}</p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity"
+            >
+              Retry
+            </button>
+            <Link
+              to="/game"
+              className="bg-secondary text-secondary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity"
+            >
+              Join a game
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (

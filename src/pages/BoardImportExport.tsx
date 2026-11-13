@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pb from "@/pb";
+import type { GameTemplateRecord } from "@/lib/pbTypes";
 import { boardToCsv, boardToJson, parseBoardFile, type Board, type BoardError } from "@/lib/boardFile";
 import { downloadText, loadTemplateBoard, saveBoardAsTemplate, slug } from "@/lib/templateBoard";
 
 export default function BoardImportExport() {
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<GameTemplateRecord[]>([]);
   const [exportId, setExportId] = useState("");
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -23,7 +24,7 @@ export default function BoardImportExport() {
 
   useEffect(() => {
     pb.collection("game_templates")
-      .getFullList({ sort: "-created" })
+      .getFullList<GameTemplateRecord>({ sort: "-created" })
       .then(setTemplates)
       .catch((err) => console.error("Failed to fetch templates:", err));
   }, [saved]);
@@ -34,8 +35,8 @@ export default function BoardImportExport() {
       const b = await loadTemplateBoard(pb, exportId);
       if (format === "csv") downloadText(`${slug(b.title)}.csv`, boardToCsv(b), "text/csv");
       else downloadText(`${slug(b.title)}.json`, boardToJson(b), "application/json");
-    } catch (err: any) {
-      setExportError(err?.message || "Export failed");
+    } catch (err: unknown) {
+      setExportError(err instanceof Error ? err.message : "Export failed");
     }
   };
 
@@ -59,8 +60,8 @@ export default function BoardImportExport() {
       setSaved(t.title);
       setBoard(null);
       setFileName("");
-    } catch (err: any) {
-      setSaveError(err?.message || "Couldn't save the board");
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't save the board");
     } finally {
       setSaving(false);
     }

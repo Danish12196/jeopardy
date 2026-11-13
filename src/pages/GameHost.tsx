@@ -12,6 +12,7 @@ import HostHeader from "@/components/host/HostHeader";
 import EndGameDialog from "@/components/host/EndGameDialog";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 import { useHostGame } from "@/hooks/useHostGame";
+import { defaultRowValues } from "@/lib/loadGameState";
 
 export default function GameHost() {
   const { uniqueID } = useParams();
@@ -64,7 +65,7 @@ export default function GameHost() {
   } = useHostGame(uniqueID);
 
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
-  const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
+  const values = defaultRowValues(rowCount);
   const topValue = Math.max(0, ...questions.flat().map((q) => q.value || 0));
 
   if (notFound) {

@@ -36,6 +36,8 @@ export default function BuzzerPage() {
 
   const [game, setGame] = useState<GameRecord | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [teams, setTeams] = useState<TeamRecord[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   // The round this phone tapped in, until the server confirms or rejects it.
@@ -58,6 +60,7 @@ export default function BuzzerPage() {
       }
       try {
         setNotFound(false);
+        setLoadError(null);
         const gameList = await pb.collection("games").getFullList<GameRecord>({
           filter: pb.filter("uniqueID = {:uniqueID}", { uniqueID }),
           expand: "teams",
@@ -81,11 +84,12 @@ export default function BuzzerPage() {
         setTeams(teamIds.map((id) => byId.get(id)).filter((t): t is TeamRecord => Boolean(t)));
       } catch (err) {
         console.error("Buzzer fetch error:", err);
+        setLoadError("Could not load game. Check your connection and try again.");
       }
     };
 
     fetchGame();
-  }, [uniqueID]);
+  }, [uniqueID, retryKey]);
 
   // Live updates, plus a refetch after any reconnect.
   useGameSubscription(game?.id, reloadKey, setGame);
@@ -119,6 +123,28 @@ export default function BuzzerPage() {
       setRejectedRound(round);
     }
   };
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-background bg-animated-gradient flex items-center justify-center p-8 text-foreground">
+        <div className="bg-card/60 backdrop-blur-md p-8 rounded-2xl border border-border/50 shadow-xl max-w-md text-center space-y-4">
+          <h1 className="text-2xl font-bold text-destructive">Connection Error</h1>
+          <p className="text-muted-foreground">{loadError}</p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity"
+            >
+              Retry
+            </button>
+            <Link to="/game" className="bg-secondary text-secondary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity">
+              Join a different game
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (

@@ -27,6 +27,7 @@ export default function CreateTemplate() {
             setAvailableQuestions(qs);
         } catch (err) {
             console.error("Failed to fetch data for create template:", err);
+            setError("Failed to load categories and questions. Please refresh and try again.");
         }
     };
     fetchData();

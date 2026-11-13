@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type PocketBase from "pocketbase";
-import { buildBoardFromRecords, findQuestionPosition, loadGameState } from "./loadGameState";
+import { buildBoardFromRecords, defaultRowValues, findQuestionPosition, loadGameState } from "./loadGameState";
 import type { QuestionCategoryRecord, QuestionRecord } from "./pbTypes";
 
 const cat = (id: string, name: string): QuestionCategoryRecord =>
@@ -15,6 +15,13 @@ const q = (id: string, category: string, difficulty: number, value?: number): Qu
     question: `Q ${id}`,
     answer: `A ${id}`,
   } as QuestionRecord);
+
+describe("defaultRowValues", () => {
+  it("generates 100-step row values", () => {
+    expect(defaultRowValues(0)).toEqual([]);
+    expect(defaultRowValues(3)).toEqual([100, 200, 300]);
+  });
+});
 
 describe("buildBoardFromRecords", () => {
   it("groups questions by category, sorts by difficulty, and computes fallback values", () => {
