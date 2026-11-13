@@ -2,17 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { scoreOf, type TeamScore } from "@/lib/scoring";
+import type { AllInState } from "@/lib/pbTypes";
 
-export type AllInState = {
-  category?: string;
-  question?: string;
-  answer?: string;
-  results?: Record<string, boolean>;
-  order?: string[];
-  revealed?: number;
-  /** Score change applied to each team as it was revealed. */
-  applied?: Record<string, number>;
-};
+export type { AllInState };
 
 type Props = {
   phase: string;

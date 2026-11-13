@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
+import type { QuestionCategoryRecord, QuestionRecord } from "@/lib/pbTypes";
 
 export default function CreateTemplate() {
   const [title, setTitle] = useState("");
   const [isPublic, setIsPublic] = useState(false);
-  const [availableCategories, setAvailableCategories] = useState<any[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<QuestionCategoryRecord[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [availableQuestions, setAvailableQuestions] = useState<any[]>([]);
+  const [availableQuestions, setAvailableQuestions] = useState<QuestionRecord[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
 
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +20,8 @@ export default function CreateTemplate() {
   useEffect(() => {
     const fetchData = async () => {
         try {
-            const cats = await pb.collection("question_categories").getFullList({ sort: "-created", expand: "user" });
-            const qs = await pb.collection("questions").getFullList({ sort: "-created", expand: "user,category" });
+            const cats = await pb.collection("question_categories").getFullList<QuestionCategoryRecord>({ sort: "-created", expand: "user" });
+            const qs = await pb.collection("questions").getFullList<QuestionRecord>({ sort: "-created", expand: "user,category" });
 
             setAvailableCategories(cats);
             setAvailableQuestions(qs);
@@ -68,7 +69,7 @@ export default function CreateTemplate() {
           await pb.collection("game_templates").create({
               title,
               isPublic,
-              user: pb.authStore.model?.id,
+              user: pb.authStore.record?.id,
               categories: selectedCategories,
               questions: selectedQuestions
           });
@@ -79,8 +80,8 @@ export default function CreateTemplate() {
           setIsPublic(false);
 
           setTimeout(() => setSuccess(false), 3000);
-      } catch (err: any) {
-          setError(err.message || "Failed to create template");
+      } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : "Failed to create template");
       } finally {
           setLoading(false);
       }
@@ -96,8 +97,9 @@ export default function CreateTemplate() {
 
           <div className="flex flex-col md:flex-row gap-4 mb-6">
             <div className="flex-1">
-                <label className="block mb-2 text-sm font-semibold">Template Title</label>
+                <label htmlFor="create-template-title" className="block mb-2 text-sm font-semibold">Template Title</label>
                 <Input
+                    id="create-template-title"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                     placeholder="E.g., Friday Trivia"
@@ -105,8 +107,8 @@ export default function CreateTemplate() {
                 />
             </div>
             <div className="flex items-end mb-1">
-                <label className="flex items-center gap-3 text-sm bg-background/50 px-6 h-12 rounded-lg border border-border/50 cursor-pointer hover:bg-background/80 transition-colors">
-                    <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="w-5 h-5 cursor-pointer accent-accent" />
+                <label htmlFor="create-template-public" className="flex items-center gap-3 text-sm bg-background/50 px-6 h-12 rounded-lg border border-border/50 cursor-pointer hover:bg-background/80 transition-colors">
+                    <input id="create-template-public" type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="w-5 h-5 cursor-pointer accent-accent" />
                     Make Public
                 </label>
             </div>
@@ -116,7 +118,7 @@ export default function CreateTemplate() {
               <label className="block mb-3 font-semibold border-b border-border/50 pb-2">Select Categories</label>
               <div className="flex flex-wrap gap-3 max-h-48 overflow-y-auto p-4 bg-background/30 rounded-xl border border-border/30 custom-scrollbar">
                   {availableCategories.map(cat => {
-                      const isMine = cat.user === pb.authStore.model?.id;
+                      const isMine = cat.user === pb.authStore.record?.id;
                       return (
                           <motion.button
                               key={cat.id}

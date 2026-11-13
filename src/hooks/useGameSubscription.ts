@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import pb from "@/pb";
+import type { GameRecord } from "@/lib/pbTypes";
 
 /**
  * Subscribes to one game record and calls `onRecord` with every update.
@@ -9,7 +10,11 @@ import pb from "@/pb";
  * Uses the listener-specific unsubscribe, not unsubscribe(topic): the latter
  * removes every listener on the topic and can race a fresh subscription.
  */
-export function useGameSubscription(gameId: string | null | undefined, reloadKey: number, onRecord: (g: any) => void) {
+export function useGameSubscription(
+  gameId: string | null | undefined,
+  reloadKey: number,
+  onRecord: (g: GameRecord) => void
+) {
   const cb = useRef(onRecord);
   useEffect(() => {
     cb.current = onRecord;
@@ -21,14 +26,14 @@ export function useGameSubscription(gameId: string | null | undefined, reloadKey
     let unsubscribe: (() => Promise<void>) | null = null;
 
     (async () => {
-      unsubscribe = await pb.collection("games").subscribe(gameId, (e) => {
+      unsubscribe = await pb.collection("games").subscribe<GameRecord>(gameId, (e) => {
         if (!cancelled) cb.current(e.record);
       });
       if (cancelled) {
         unsubscribe().catch(() => {});
         return;
       }
-      const rec = await pb.collection("games").getOne(gameId);
+      const rec = await pb.collection("games").getOne<GameRecord>(gameId);
       if (!cancelled) cb.current(rec);
     })().catch((err) => console.error("Game subscription error:", err));
 

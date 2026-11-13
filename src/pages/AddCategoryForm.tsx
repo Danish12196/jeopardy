@@ -17,18 +17,32 @@ export default function AddCategoryForm() {
   const [name, setName] = useState("");
   const [difficulty, setDifficulty] = useState("Easy");
   const [isPublic, setIsPublic] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const handleSubmit = async () => {
-    if (!name.trim()) return;
-    await pb
-      .collection("question_categories")
-      .create({ name, difficulty, isPublic, user: pb.authStore.model?.id });
-    setName("");
-    setDifficulty("Easy");
-    setIsPublic(false);
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
+    if (!name.trim()) {
+      setError("Category name is required.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      await pb
+        .collection("question_categories")
+        .create({ name: name.trim(), difficulty, isPublic, user: pb.authStore.record?.id });
+      setName("");
+      setDifficulty("Easy");
+      setIsPublic(false);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to add category.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -38,8 +52,9 @@ export default function AddCategoryForm() {
         className="bg-card/50 p-6 rounded-xl border border-border/40 max-w-xl mx-auto space-y-6"
     >
       <div className="space-y-2">
-          <label className="text-sm font-semibold">Category Name</label>
+          <label htmlFor="category-name" className="text-sm font-semibold">Category Name</label>
           <Input
+            id="category-name"
             placeholder="E.g., World History"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -64,16 +79,28 @@ export default function AddCategoryForm() {
       </div>
 
       <div className="flex items-center gap-3 bg-background/30 p-4 rounded-lg border border-border/40">
-          <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="w-5 h-5 accent-accent cursor-pointer" />
-          <div className="text-sm">
+          <input id="category-public" type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="w-5 h-5 accent-accent cursor-pointer" />
+          <label htmlFor="category-public" className="text-sm cursor-pointer">
               <p className="font-semibold">Make Public</p>
               <p className="text-muted-foreground text-xs">Allow other users to see and use this category</p>
-          </div>
+          </label>
       </div>
 
-      <Button onClick={handleSubmit} variant="brand" className="w-full h-14 text-lg">Add Category</Button>
+      <Button onClick={handleSubmit} disabled={submitting} variant="brand" className="w-full h-14 text-lg">
+        {submitting ? "Adding..." : "Add Category"}
+      </Button>
 
       <AnimatePresence>
+          {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-destructive font-bold text-center bg-destructive/10 p-2 rounded border border-destructive/20"
+              >
+                  {error}
+              </motion.p>
+          )}
           {success && (
               <motion.p
                 initial={{ opacity: 0, y: -10 }}

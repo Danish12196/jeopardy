@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 import { makeGameCode } from "@/lib/gameCode";
+import type { GameTemplateRecord, QuestionCategoryRecord, QuestionRecord } from "@/lib/pbTypes";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const MAX_CODE_ATTEMPTS = 5;
+
+function isUniqueIdCollision(err: unknown): boolean {
+  const e = err as { status?: number; response?: { data?: { uniqueID?: unknown }; message?: string } };
+  return e?.status === 400 && (Boolean(e?.response?.data?.uniqueID) || /unique/i.test(e?.response?.message || ""));
+}
 
 export default function SelectTemplate({ selectedTeams }: { selectedTeams: string[] }) {
   const navigate = useNavigate();
@@ -20,30 +27,31 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
   const [categories, setCategories] = useState<string[]>([]);
   const [values, setValues] = useState<number[]>([]);
 
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+  const [templates, setTemplates] = useState<GameTemplateRecord[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<GameTemplateRecord | null>(null);
 
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
         const records = await pb
-            .collection("game_templates")
-            .getFullList({
+          .collection("game_templates")
+          .getFullList<GameTemplateRecord>({
             sort: "-created",
             expand: "user",
-            });
+          });
 
+        const currentUserId = pb.authStore.record?.id;
         const sorted = records.sort((a, b) => {
-            const aMine = a.user === pb.authStore.model?.id;
-            const bMine = b.user === pb.authStore.model?.id;
-            if (aMine && !bMine) return -1;
-            if (!aMine && bMine) return 1;
-            return 0;
+          const aMine = a.user === currentUserId;
+          const bMine = b.user === currentUserId;
+          if (aMine && !bMine) return -1;
+          if (!aMine && bMine) return 1;
+          return 0;
         });
 
         setTemplates(sorted);
       } catch (err) {
-          console.error("Failed to fetch templates:", err);
+        console.error("Failed to fetch templates:", err);
       }
     };
     fetchTemplates();
@@ -53,27 +61,35 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
     const fetchTemplateDetails = async () => {
       if (!selectedTemplate) return;
       try {
-          const categoryRecords = await Promise.all(
-            selectedTemplate.categories.map((id: string) =>
-              pb.collection("question_categories").getOne(id)
-            )
-          );
-          setCategories(categoryRecords.map((cat) => cat.name));
+        const categoryIds = selectedTemplate.categories ?? [];
+        const questionIds = selectedTemplate.questions ?? [];
 
-          const qs = await pb.collection("questions").getFullList({
-              filter: selectedTemplate.questions.map((id: string) => `id="${id}"`).join(" || ")
-          });
+        const categoryRecords = categoryIds.length
+          ? await pb.collection("question_categories").getFullList<QuestionCategoryRecord>({
+              filter: categoryIds.map((id) => pb.filter("id = {:id}", { id })).join(" || "),
+            })
+          : [];
+        const byCatId = new Map(categoryRecords.map((c) => [c.id, c]));
+        const orderedCategories = categoryIds
+          .map((id) => byCatId.get(id))
+          .filter((c): c is QuestionCategoryRecord => Boolean(c));
+        setCategories(orderedCategories.map((cat) => cat.name));
 
-          let maxQs = 0;
-          for (const catId of selectedTemplate.categories) {
-              const qCount = qs.filter(q => q.category === catId).length;
-              if (qCount > maxQs) maxQs = qCount;
-          }
+        const qs = questionIds.length
+          ? await pb.collection("questions").getFullList<QuestionRecord>({
+              filter: questionIds.map((id) => pb.filter("id = {:id}", { id })).join(" || "),
+            })
+          : [];
 
-          setValues(Array.from({ length: maxQs }, (_, i) => (i + 1) * 100));
+        let maxQs = 0;
+        for (const catId of categoryIds) {
+          const qCount = qs.filter((q) => q.category === catId).length;
+          if (qCount > maxQs) maxQs = qCount;
+        }
 
+        setValues(Array.from({ length: maxQs }, (_, i) => (i + 1) * 100));
       } catch (err) {
-          console.error("Failed to fetch template details:", err);
+        console.error("Failed to fetch template details:", err);
       }
     };
     fetchTemplateDetails();
@@ -89,24 +105,38 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
     setStarting(true);
     setError(null);
     try {
-      const uniqueID = makeGameCode();
-      await pb.collection("games").create({
-        title: `Game: ${selectedTemplate.title}`,
-        uniqueID,
-        template: selectedTemplate.id,
-        host: pb.authStore.record?.id,
-        teams: selectedTeams,
-        categories,
-        values,
-        teamScores: selectedTeams.map((t) => ({ id: t, score: 0 })),
-        answeredQuestions: [],
-        buzzRound: 0,
-        showAnswer: false,
-        buzzerUnlocked: false,
-        hostForceShowQuestion: false
-      });
+      let createdCode: string | null = null;
+      for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+        const uniqueID = makeGameCode();
+        try {
+          await pb.collection("games").create({
+            title: `Game: ${selectedTemplate.title}`,
+            uniqueID,
+            template: selectedTemplate.id,
+            host: pb.authStore.record?.id,
+            teams: selectedTeams,
+            categories,
+            values,
+            teamScores: selectedTeams.map((t) => ({ id: t, score: 0 })),
+            answeredQuestions: [],
+            buzzRound: 0,
+            showAnswer: false,
+            buzzerUnlocked: false,
+            hostForceShowQuestion: false,
+          });
+          createdCode = uniqueID;
+          break;
+        } catch (err) {
+          if (isUniqueIdCollision(err) && attempt < MAX_CODE_ATTEMPTS - 1) {
+            continue;
+          }
+          throw err;
+        }
+      }
 
-      navigate(`/game/${uniqueID}/host`);
+      if (createdCode) {
+        navigate(`/game/${createdCode}/host`);
+      }
     } catch (err) {
       console.error("Failed to create game:", err);
       setError("Couldn't create the game. Check the console for details.");
@@ -134,7 +164,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         </SelectTrigger>
         <SelectContent>
           {templates.map((template) => {
-            const isMine = template.user === pb.authStore.model?.id;
+            const isMine = template.user === pb.authStore.record?.id;
             const authorName = template.expand?.user?.username || template.expand?.user?.email || "Unknown";
             return (
                 <SelectItem key={template.id} value={template.id}>
