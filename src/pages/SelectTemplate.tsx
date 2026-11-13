@@ -129,6 +129,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
             hostForceShowQuestion: false,
             settings: normalizedSettings,
             passedTeams: [],
+            round: 1,
           });
           createdCode = uniqueID;
           break;
@@ -141,7 +142,9 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
       }
 
       if (createdCode) {
-        navigate(`/game/${createdCode}/host`);
+        navigate(
+          `/game/${createdCode}/${normalizeSettings(settings).gameMode === "solo" ? "solo" : "host"}`
+        );
       }
     } catch (err) {
       console.error("Failed to create game:", err);

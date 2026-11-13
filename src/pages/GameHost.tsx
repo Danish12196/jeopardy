@@ -16,8 +16,10 @@ import { effectiveBoardValues } from "@/lib/scoring";
 import { brandingStyleVars } from "@/lib/branding";
 import { saveLocalSoundPrefs } from "@/lib/sound";
 import { HOST_SHORTCUTS, resolveHostShortcut } from "@/lib/shortcuts";
+import HostModePanel from "@/components/host/HostModePanel";
+import { activeTeamIds, isTopTied, lowestScoringTeam, normalizeGameMode } from "@/lib/gameModes";
 
-export default function GameHost() {
+export default function GameHost({ solo = false }: { solo?: boolean } = {}) {
   const { uniqueID } = useParams();
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -82,6 +84,11 @@ export default function GameHost() {
     toggleLockTeam,
     kickTeam,
     ensureCohostCode,
+    startNextRound,
+    eliminateLowestTeam,
+    startTiebreaker,
+    revealTiebreaker,
+    endTiebreaker,
   } = useHostGame(uniqueID);
 
   useEffect(() => {
@@ -188,6 +195,15 @@ export default function GameHost() {
           }
         }}
       />
+
+      {solo && (
+        <div
+          className="mb-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent"
+          data-testid="solo-banner"
+        >
+          Solo mode: run the whole game from this single screen. Use + / − to score each question.
+        </div>
+      )}
 
       <AnimatePresence>
         {actionError && (
@@ -300,6 +316,7 @@ export default function GameHost() {
         </div>
 
         <div className="w-full lg:w-1/2 flex flex-col gap-6">
+          {!solo && (
           <HostBuzzerControls
             buzzerUnlocked={Boolean(game.buzzerUnlocked)}
             autoUnlock={autoUnlock}
@@ -317,8 +334,9 @@ export default function GameHost() {
             onResumeTimer={resumeTimer}
             onClearTimer={clearTimer}
           />
+          )}
 
-          {pendingRegistrations.length > 0 && (
+          {!solo && pendingRegistrations.length > 0 && (
             <div className="bg-card/60 backdrop-blur-md p-4 rounded-2xl border border-accent/40 shadow-lg space-y-2" data-testid="host-team-requests">
               <h3 className="text-sm uppercase tracking-wider font-bold text-accent">
                 Team Join Requests ({pendingRegistrations.length})
@@ -345,6 +363,20 @@ export default function GameHost() {
               ))}
             </div>
           )}
+
+          <HostModePanel
+            mode={normalizeGameMode(settings.gameMode)}
+            round={game.round ?? 1}
+            eliminatedNames={teams.filter((t) => (game.eliminatedTeams ?? []).includes(t.id)).map((t) => t.name)}
+            canEliminate={lowestScoringTeam(game.teams ?? [], scores, game.eliminatedTeams) !== null}
+            topTied={isTopTied(activeTeamIds(game.teams ?? [], game.eliminatedTeams), scores)}
+            tiebreaker={game.tiebreaker}
+            onNextRound={() => void startNextRound()}
+            onEliminateLowest={() => void eliminateLowestTeam()}
+            onStartTiebreaker={(q, a) => void startTiebreaker(q, a)}
+            onRevealTiebreaker={() => void revealTiebreaker()}
+            onEndTiebreaker={() => void endTiebreaker()}
+          />
 
           <HostTeamScores
             teams={teams}

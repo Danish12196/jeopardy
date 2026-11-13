@@ -529,3 +529,50 @@ test("Content library: duplicate template and search/filter question library", a
 });
 
 
+test("Game modes: rounds doubles values, tiebreaker shows on TV", async ({ page: host, browser }) => {
+  const { api, game } = await setup(host);
+  await api.collection("games").update(game.id, { settings: { gameMode: "rounds" }, round: 1 });
+  await host.reload();
+  const tv = await openTv(browser, game.uniqueID);
+
+  await expect(host.getByTestId("host-mode-panel")).toContainText("Round 1");
+  await expect(host.getByRole("button", { name: "100", exact: true })).toHaveCount(4);
+  await host.getByRole("button", { name: "Start Round 2 (2× values)" }).click();
+  await expect(host.getByRole("button", { name: "200", exact: true })).toHaveCount(4);
+  await expect(host.getByRole("button", { name: "100", exact: true })).toHaveCount(0);
+  await expect(tv.page.getByTestId("tv-round")).toContainText("Round 2");
+
+  // Both teams are at 0, so the top is tied.
+  await host.getByLabel("Tiebreaker Question").fill("Closest to the year Linux began?");
+  await host.getByLabel("Tiebreaker Answer").fill("1991");
+  await host.getByRole("button", { name: "Start Tiebreaker" }).click();
+  await expect(host.getByTestId("host-tiebreaker-active")).toBeVisible();
+  await expect(tv.page.getByTestId("tv-tiebreaker")).toContainText("Closest to the year Linux began?");
+  await expect(tv.page.getByTestId("tv-tiebreaker-answer")).toHaveCount(0);
+  await host.getByRole("button", { name: "Reveal Tiebreaker Answer" }).click();
+  await expect(tv.page.getByTestId("tv-tiebreaker-answer")).toHaveText("1991");
+  await host.getByRole("button", { name: "End Tiebreaker" }).click();
+  await expect(tv.page.getByTestId("tv-tiebreaker")).toHaveCount(0);
+});
+
+test("Game modes: elimination removes lowest team", async ({ page: host, browser }) => {
+  const { api, game } = await setup(host);
+  await api.collection("games").update(game.id, { settings: { gameMode: "elimination" }, round: 1 });
+  await host.reload();
+  const tv = await openTv(browser, game.uniqueID);
+
+  await host.getByRole("button", { name: "Correct: add points to Team 1" }).click();
+  await expect(host.getByTestId("host-score-Team 1")).toHaveText("100");
+  await host.getByRole("button", { name: "Eliminate Lowest Team" }).click();
+  await expect(host.getByTestId("host-eliminated")).toContainText("Team 2");
+  await expect(tv.page.getByTestId("tv-eliminated")).toContainText("Team 2");
+  await host.getByRole("button", { name: "Next Round" }).click();
+  await expect(host.getByTestId("host-mode-panel")).toContainText("Round 2");
+});
+
+test("Game modes: solo route shows the solo banner", async ({ page: host }) => {
+  const { api, game } = await setup(host);
+  await api.collection("games").update(game.id, { settings: { gameMode: "solo" } });
+  await host.goto(`/game/${game.uniqueID}/solo`);
+  await expect(host.getByTestId("solo-banner")).toBeVisible();
+});

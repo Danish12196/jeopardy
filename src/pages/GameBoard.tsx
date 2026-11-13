@@ -17,6 +17,7 @@ import { loadLocalSoundPrefs, playSound } from "@/lib/sound";
 import { brandingStyleVars, normalizeBranding } from "@/lib/branding";
 import type { BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
 import { effectiveBoardValues, scoreOf } from "@/lib/scoring";
+import { roundMultiplier, scaleQuestions } from "@/lib/gameModes";
 
 export default function GameBoard() {
   const { uniqueID } = useParams();
@@ -41,6 +42,15 @@ export default function GameBoard() {
     }),
     [live?.settings?.sound, tvMuted]
   );
+  const scaledQuestions = useMemo(
+    () => scaleQuestions(questions, roundMultiplier(live?.settings, live?.round)),
+    [questions, live?.settings, live?.round]
+  );
+  const gameMode = live?.settings?.gameMode ?? "classic";
+  const eliminatedNames = teams
+    .filter((t) => (live?.eliminatedTeams ?? []).includes(t.id))
+    .map((t) => t.name);
+  const tiebreaker = live?.tiebreaker ?? null;
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
   const values = effectiveBoardValues(live?.values, rowCount, live?.settings);
   const allInPhase: string = live?.allInPhase || "";
@@ -59,8 +69,8 @@ export default function GameBoard() {
   const activeQuestion = useMemo(() => {
     const id = live?.currentActiveQuestion;
     if (!id) return null;
-    return questions.flat().find((q) => q.id === id) ?? null;
-  }, [questions, live?.currentActiveQuestion]);
+    return scaledQuestions.flat().find((q) => q.id === id) ?? null;
+  }, [scaledQuestions, live?.currentActiveQuestion]);
 
   const lastBuzzerCountRef = useRef(0);
   const lastWildcardRef = useRef<string | null>(null);
@@ -212,6 +222,16 @@ export default function GameBoard() {
           )}
         </div>
       )}
+      {(gameMode === "rounds" || gameMode === "elimination") && (
+        <div className="text-center mb-2 text-sm font-mono text-muted-foreground" data-testid="tv-round">
+          Round {live?.round ?? 1}
+        </div>
+      )}
+      {eliminatedNames.length > 0 && (
+        <div className="text-center mb-2 text-sm text-destructive" data-testid="tv-eliminated">
+          Eliminated: {eliminatedNames.join(", ")}
+        </div>
+      )}
       <TvScoreboard teams={teams} />
 
       <div className="flex-1 flex items-center justify-center w-full overflow-x-auto pb-4 relative">
@@ -225,6 +245,23 @@ export default function GameBoard() {
                 Game Paused
               </h2>
               <p className="text-muted-foreground mt-2 text-lg">Waiting for the host to resume...</p>
+            </div>
+          </div>
+        )}
+        {tiebreaker && !live?.gameOver && (
+          <div
+            className="fixed inset-0 z-40 bg-background/90 backdrop-blur-md flex items-center justify-center p-8"
+            data-testid="tv-tiebreaker"
+            role="alert"
+          >
+            <div className="bg-card border-4 border-accent rounded-3xl px-12 py-8 text-center shadow-2xl max-w-3xl">
+              <h2 className="text-3xl font-black text-accent uppercase tracking-widest">Tiebreaker</h2>
+              <p className="text-3xl md:text-5xl font-bold mt-4">{tiebreaker.question}</p>
+              {tiebreaker.showAnswer && (
+                <p className="text-2xl md:text-4xl text-primary mt-6" data-testid="tv-tiebreaker-answer">
+                  {tiebreaker.answer}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -243,7 +280,7 @@ export default function GameBoard() {
           ) : !activeQuestion ? (
             <TvBoardGrid
               categories={categories}
-              questions={questions}
+              questions={scaledQuestions}
               values={values}
               usedQuestions={usedQuestions}
             />
