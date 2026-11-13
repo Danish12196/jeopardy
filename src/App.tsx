@@ -7,11 +7,20 @@ import GameBoard from "./pages/GameBoard";
 import BuzzerPage from "./pages/BuzzerPage";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import pb from "@/pb";
 
 function PrivateRoute({ children }: { children: React.ReactElement }) {
-  if (!pb.authStore.isValid) {
+  const [isValid, setIsValid] = useState(() => pb.authStore.isValid);
+
+  useEffect(() => {
+    setIsValid(pb.authStore.isValid);
+    return pb.authStore.onChange(() => {
+      setIsValid(pb.authStore.isValid);
+    });
+  }, []);
+
+  if (!isValid) {
     return <Navigate to="/login" replace />;
   }
   return children;

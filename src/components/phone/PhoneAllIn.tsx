@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import pb from "@/pb";
 import { allInMaxWager, clampWager, scoreOf, standings, type TeamScore } from "@/lib/scoring";
+import type { GameRecord } from "@/lib/pbTypes";
 
 const wagerKey = (gameId: string, teamId: string) => `lockout-wager-${gameId}-${teamId}`;
 
@@ -16,7 +17,7 @@ function savedWager(gameId: string, teamId: string): number | null {
 }
 
 type Props = {
-  game: any;
+  game: GameRecord;
   teamId: string;
   teams: { id: string; name: string }[];
 };

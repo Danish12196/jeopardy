@@ -1,0 +1,106 @@
+import type { RecordModel } from "pocketbase";
+import type { ScoreSnapshot, TeamScore } from "./scoring";
+
+export interface WildcardState {
+  question: string;
+  team?: string;
+  wager?: number | null;
+  resolved?: boolean;
+}
+
+export interface AllInState {
+  category?: string;
+  question?: string;
+  answer?: string;
+  results?: Record<string, boolean>;
+  order?: string[];
+  revealed?: number;
+  /** Score change applied to each team as it was revealed. */
+  applied?: Record<string, number>;
+}
+
+export interface TeamRecord extends RecordModel {
+  name: string;
+  user?: string;
+  isPublic?: boolean;
+}
+
+export interface QuestionCategoryRecord extends RecordModel {
+  name: string;
+  difficulty?: "Easy" | "Medium" | "Hard";
+  isPublic?: boolean;
+  user?: string;
+  expand?: {
+    user?: RecordModel;
+  };
+}
+
+export interface QuestionRecord extends RecordModel {
+  question: string;
+  answer: string;
+  hint?: string;
+  value?: number;
+  category: string;
+  difficulty?: number;
+  isPublic?: boolean;
+  user?: string;
+  expand?: {
+    user?: RecordModel;
+    category?: QuestionCategoryRecord;
+  };
+}
+
+export interface GameTemplateRecord extends RecordModel {
+  title: string;
+  categories: string[];
+  questions: string[];
+  isPublic?: boolean;
+  user?: string;
+  expand?: {
+    user?: RecordModel;
+    categories?: QuestionCategoryRecord[];
+    questions?: QuestionRecord[];
+  };
+}
+
+export interface GameRecord extends RecordModel {
+  title?: string;
+  uniqueID: string;
+  template: string;
+  host?: string;
+  teams: string[];
+  categories?: string[];
+  values?: number[];
+  teamScores?: TeamScore[];
+  answeredQuestions?: string[];
+  buzzerQueue?: unknown[];
+  currentActiveQuestion?: string | null;
+  currentActiveTeam?: string | null;
+  showAnswer?: boolean;
+  buzzerUnlocked?: boolean;
+  hostForceShowQuestion?: boolean;
+  buzzRound?: number;
+  scoreHistory?: ScoreSnapshot[];
+  wildcards?: string[];
+  wildcard?: WildcardState | null;
+  allInPhase?: string;
+  allIn?: AllInState | null;
+  gameOver?: boolean;
+  expand?: {
+    template?: GameTemplateRecord;
+    teams?: TeamRecord[];
+  };
+}
+
+export interface BoardQuestion {
+  id: string;
+  question: string;
+  answer: string;
+  value: number;
+}
+
+export interface GameTeam {
+  id: string;
+  name: string;
+  score: number;
+}

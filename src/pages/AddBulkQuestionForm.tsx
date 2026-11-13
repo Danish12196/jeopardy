@@ -1,129 +1,94 @@
 import { useEffect, useState } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 import pb from "@/pb";
+import type { QuestionCategoryRecord } from "@/lib/pbTypes";
+import BulkQuestionRow, { type QuestionDraft } from "@/components/setup/BulkQuestionRow";
 
-type Question = {
-  question: string;
-  answer: string;
-  hint: string;
-  value: number;
-  category: string;
-  difficulty: string;
-  isPublic: boolean;
-};
-
-// Order of questions within a category (1 = easiest, shown as the lowest value).
-const difficultyOptions = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+const emptyRow = (): QuestionDraft => ({
+  question: "",
+  answer: "",
+  hint: "",
+  value: 100,
+  category: "",
+  difficulty: "1",
+  isPublic: false,
+});
 
 export default function AddBulkQuestionForm() {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([
-    {
-      question: "",
-      answer: "",
-      hint: "",
-      value: 100,
-      category: "",
-      difficulty: "1",
-      isPublic: false
-    },
-  ]);
+  const [categories, setCategories] = useState<QuestionCategoryRecord[]>([]);
+  const [questions, setQuestions] = useState<QuestionDraft[]>([emptyRow()]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const updateQuestion = <K extends keyof Question>(
+  const updateQuestion = <K extends keyof QuestionDraft>(
     index: number,
     key: K,
-    value: Question[K]
+    value: QuestionDraft[K]
   ) => {
-    const updated = [...questions];
-    updated[index][key] = value;
-    setQuestions(updated);
+    setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, [key]: value } : q)));
   };
 
-  const addRow = () => {
-    setQuestions([
-      ...questions,
-      {
-        question: "",
-        answer: "",
-        hint: "",
-        value: 100,
-        category: "",
-        difficulty: "1",
-        isPublic: false
-      },
-    ]);
-  };
-
-  const removeRow = (index: number) => {
+  const addRow = () => setQuestions((prev) => [...prev, emptyRow()]);
+  const removeRow = (index: number) =>
     setQuestions((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const handleSubmitAll = async () => {
     const validQuestions = questions.filter(
-      (q) =>
-        q.question.trim() && q.answer.trim() && q.category.trim()
+      (q) => q.question.trim() && q.answer.trim() && q.category.trim()
     );
 
-    if (validQuestions.length === 0) return;
+    if (validQuestions.length === 0) {
+      setError("Fill in question, answer, and category for at least one row.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setSuccess(false);
 
     const batch = pb.createBatch();
-
     for (const q of validQuestions) {
       batch.collection("questions").create({
-          ...q,
-          difficulty: Number(q.difficulty),
-          user: pb.authStore.model?.id
+        ...q,
+        difficulty: Number(q.difficulty),
+        user: pb.authStore.record?.id,
       });
     }
 
     try {
       await batch.send();
-      setQuestions([
-        {
-          question: "",
-          answer: "",
-          hint: "",
-          value: 100,
-          category: "",
-          difficulty: "1",
-          isPublic: false
-        },
-      ]);
+      setQuestions([emptyRow()]);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Batch error:", err);
+      setError(err instanceof Error ? err.message : "Failed to save questions.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   useEffect(() => {
     const loadCategories = async () => {
       try {
-          const records = await pb
-            .collection("question_categories")
-            .getFullList({ expand: "user" });
+        const records = await pb
+          .collection("question_categories")
+          .getFullList<QuestionCategoryRecord>({ expand: "user" });
 
-          const sorted = records.sort((a, b) => {
-              const aMine = a.user === pb.authStore.model?.id;
-              const bMine = b.user === pb.authStore.model?.id;
-              if (aMine && !bMine) return -1;
-              if (!aMine && bMine) return 1;
-              return 0;
-          });
+        const currentUserId = pb.authStore.record?.id;
+        const sorted = records.sort((a, b) => {
+          const aMine = a.user === currentUserId;
+          const bMine = b.user === currentUserId;
+          if (aMine && !bMine) return -1;
+          if (!aMine && bMine) return 1;
+          return 0;
+        });
 
-          setCategories(sorted);
+        setCategories(sorted);
       } catch (err) {
-          console.error("Failed to load categories:", err);
+        console.error("Failed to load categories:", err);
       }
     };
     loadCategories();
@@ -131,9 +96,9 @@ export default function AddBulkQuestionForm() {
 
   return (
     <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="space-y-6 bg-card/50 p-6 rounded-xl border border-border/40"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-6 bg-card/50 p-6 rounded-xl border border-border/40"
     >
       <div className="overflow-x-auto custom-scrollbar rounded-xl border border-border/50 shadow-inner bg-background/30">
         <table className="w-full text-sm min-w-[900px]">
@@ -151,137 +116,55 @@ export default function AddBulkQuestionForm() {
           </thead>
           <tbody>
             <AnimatePresence>
-            {questions.map((q, i) => (
-              <motion.tr
-                key={i}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, height: 0 }}
-                className="border-b border-border/20 last:border-0 hover:bg-muted/10 transition-colors"
-              >
-                <td className="p-2">
-                  <Input
-                    value={q.question}
-                    onChange={(e) =>
-                      updateQuestion(i, "question", e.target.value)
-                    }
-                    className="bg-background text-foreground"
-                    placeholder="Enter question"
-                  />
-                </td>
-                <td className="p-2">
-                  <Input
-                    value={q.answer}
-                    onChange={(e) =>
-                      updateQuestion(i, "answer", e.target.value)
-                    }
-                    className="bg-background text-foreground"
-                    placeholder="Answer"
-                  />
-                </td>
-                <td className="p-2">
-                  <Input
-                    value={q.hint}
-                    onChange={(e) => updateQuestion(i, "hint", e.target.value)}
-                    className="bg-background text-foreground"
-                    placeholder="Hint (optional)"
-                  />
-                </td>
-                <td className="p-2">
-                  <Input
-                    type="number"
-                    value={q.value}
-                    onChange={(e) =>
-                      updateQuestion(i, "value", +e.target.value)
-                    }
-                    className="bg-background text-foreground"
-                  />
-                </td>
-                <td className="p-2">
-                  <Select
-                    value={q.category}
-                    onValueChange={(val) => updateQuestion(i, "category", val)}
-                  >
-                    <SelectTrigger className="bg-background text-foreground">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => {
-                          const isMine = cat.user === pb.authStore.model?.id;
-                          return (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {cat.name} {!isMine && <span className="opacity-50 text-xs ml-1">(Public)</span>}
-                              </SelectItem>
-                          );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="p-2">
-                  <Select
-                    value={q.difficulty}
-                    onValueChange={(val) =>
-                      updateQuestion(i, "difficulty", val)
-                    }
-                  >
-                    <SelectTrigger className="bg-background text-foreground">
-                      <SelectValue placeholder="Order" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {difficultyOptions.map((diff) => (
-                        <SelectItem key={diff} value={diff}>
-                          Level {diff}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="p-2 text-center">
-                    <input
-                        type="checkbox"
-                        checked={q.isPublic}
-                        onChange={(e) => updateQuestion(i, "isPublic", e.target.checked)}
-                        className="w-5 h-5 cursor-pointer accent-accent"
-                    />
-                </td>
-                <td className="p-2 text-center">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeRow(i)}
-                    className="w-8 h-8 p-0 rounded-full"
-                    title="Remove row"
-                  >
-                    ✕
-                  </Button>
-                </td>
-              </motion.tr>
-            ))}
+              {questions.map((q, i) => (
+                <BulkQuestionRow
+                  key={i}
+                  row={q}
+                  categories={categories}
+                  currentUserId={pb.authStore.record?.id}
+                  onUpdate={(key, value) => updateQuestion(i, key, value)}
+                  onRemove={() => removeRow(i)}
+                />
+              ))}
             </AnimatePresence>
           </tbody>
         </table>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
-        <Button onClick={addRow} variant="secondary" className="sm:w-48 font-bold border-2 border-transparent hover:border-border">
-            + Add Row
+        <Button
+          onClick={addRow}
+          variant="secondary"
+          className="sm:w-48 font-bold border-2 border-transparent hover:border-border"
+        >
+          + Add Row
         </Button>
-        <Button onClick={handleSubmitAll} variant="brand" className="flex-1">
-          Save All Valid Questions
+        <Button onClick={handleSubmitAll} disabled={submitting} variant="brand" className="flex-1">
+          {submitting ? "Saving..." : "Save All Valid Questions"}
         </Button>
       </div>
 
       <AnimatePresence>
-          {success && (
-              <motion.p
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="text-green-400 font-bold text-center bg-green-900/20 p-3 rounded-lg"
-              >
-                  Questions saved successfully!
-              </motion.p>
-          )}
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-destructive font-bold text-center bg-destructive/10 p-3 rounded-lg border border-destructive/20"
+          >
+            {error}
+          </motion.p>
+        )}
+        {success && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-green-400 font-bold text-center bg-green-900/20 p-3 rounded-lg"
+          >
+            Questions saved successfully!
+          </motion.p>
+        )}
       </AnimatePresence>
     </motion.div>
   );

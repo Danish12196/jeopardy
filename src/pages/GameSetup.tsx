@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +10,11 @@ import SelectTemplate from "./SelectTemplate";
 import CreateTemplate from "./CreateTemplate";
 import BoardImportExport from "./BoardImportExport";
 import pb from "@/pb";
+import type { TeamRecord } from "@/lib/pbTypes";
 
 export default function GameSetup() {
-  const [availableTeams, setAvailableTeams] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const [availableTeams, setAvailableTeams] = useState<TeamRecord[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
 
@@ -22,7 +25,7 @@ export default function GameSetup() {
         // The teams list rule limits results to the signed-in user's teams,
         // so no client filter is needed. (A filter on `user` returned 400 on
         // databases created before teams had a `user` field.)
-        const records = await pb.collection("teams").getFullList({
+        const records = await pb.collection("teams").getFullList<TeamRecord>({
           sort: "-created"
         });
         setAvailableTeams(records);
@@ -36,9 +39,9 @@ export default function GameSetup() {
   const createTeam = async () => {
     if (!newTeamName.trim()) return;
     try {
-      const record = await pb.collection("teams").create({
+      const record = await pb.collection("teams").create<TeamRecord>({
         name: newTeamName.trim(),
-        user: pb.authStore.model?.id,
+        user: pb.authStore.record?.id,
         isPublic: false
       });
       setAvailableTeams([record, ...availableTeams]);
@@ -57,15 +60,25 @@ export default function GameSetup() {
     }
   };
 
+  const handleLogout = () => {
+    pb.authStore.clear();
+    navigate("/login");
+  };
+
   return (
     <div className="flex flex-col h-screen w-full max-w-6xl mx-auto p-4 md:p-8 text-foreground bg-background bg-animated-gradient">
-      <motion.h1
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-4xl font-bold mb-8 text-accent drop-shadow-md text-center md:text-left"
-      >
-        Lockout Game Setup
-      </motion.h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-4xl font-bold text-accent drop-shadow-md text-center md:text-left"
+        >
+          Lockout Game Setup
+        </motion.h1>
+        <Button variant="outline" onClick={handleLogout} className="self-center md:self-auto">
+          Log out
+        </Button>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}

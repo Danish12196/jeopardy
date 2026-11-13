@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { clampWager, scoreOf, wildcardMaxWager, type TeamScore } from "@/lib/scoring";
+import type { WildcardState } from "@/lib/pbTypes";
 
 type Props = {
-  wildcard: { question: string; team?: string; wager?: number | null; resolved?: boolean };
+  wildcard: WildcardState;
   teams: { id: string; name: string }[];
   scores: TeamScore[];
   topValue: number;

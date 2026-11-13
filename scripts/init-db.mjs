@@ -209,6 +209,9 @@ const COLLECTIONS = [
       { name: "allIn", type: "json", maxSize: 0 },
       { name: "gameOver", type: "bool" },
     ],
+    indexes: [
+      "CREATE UNIQUE INDEX `idx_games_unique_id` ON `games` (`uniqueID`)",
+    ],
   },
   {
     name: "buzzes",
