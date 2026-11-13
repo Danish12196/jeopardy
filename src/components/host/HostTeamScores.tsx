@@ -2,8 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buzzPosition, type Buzz } from "@/lib/buzzes";
-import { scoreOf, type TeamScore } from "@/lib/scoring";
-import type { GameTeam } from "@/lib/pbTypes";
+import { scoreOf, wrongDelta, type TeamScore } from "@/lib/scoring";
+import type { GameTeam, WrongPenalty } from "@/lib/pbTypes";
 
 type Props = {
   teams: GameTeam[];
@@ -12,10 +12,12 @@ type Props = {
   canUndo: boolean;
   scorePending: boolean;
   selectedValue: number;
+  wrongPenalty?: WrongPenalty;
+  stealEnabled?: boolean;
   adjust: Record<string, string>;
   onAdjustChange: (teamId: string, value: string) => void;
   onApplyAdjust: (teamId: string) => void;
-  onUpdateScore: (teamId: string, delta: number) => void;
+  onUpdateScore: (teamId: string, delta: number, isWrong?: boolean) => void;
   onUndo: () => void;
 };
 
@@ -26,12 +28,15 @@ export default function HostTeamScores({
   canUndo,
   scorePending,
   selectedValue,
+  wrongPenalty = "full",
+  stealEnabled = false,
   adjust,
   onAdjustChange,
   onApplyAdjust,
   onUpdateScore,
   onUndo,
 }: Props) {
+  const wrongPoints = wrongDelta(selectedValue, wrongPenalty);
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -125,8 +130,9 @@ export default function HostTeamScores({
                   whileHover={!scorePending ? { scale: 1.1 } : {}}
                   whileTap={!scorePending ? { scale: 0.9 } : {}}
                   disabled={scorePending}
-                  onClick={() => onUpdateScore(team.id, -selectedValue)}
-                  aria-label={`Wrong: take points from ${team.name}`}
+                  onClick={() => onUpdateScore(team.id, wrongPoints, true)}
+                  aria-label={`Wrong: take points from ${team.name}${stealEnabled && buzzQueue[0]?.team === team.id ? " and pass" : ""}`}
+                  title={stealEnabled && buzzQueue[0]?.team === team.id ? `Wrong (${wrongPoints}) & pass to next` : `Wrong (${wrongPoints})`}
                   className="bg-destructive hover:bg-destructive/80 disabled:opacity-50 disabled:cursor-not-allowed text-white w-14 h-14 rounded-full font-bold flex items-center justify-center shadow-lg text-2xl transition-colors"
                 >
                   −

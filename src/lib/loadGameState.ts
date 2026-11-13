@@ -8,7 +8,7 @@ import type {
   QuestionRecord,
   TeamRecord,
 } from "./pbTypes";
-import { scoreOf } from "./scoring";
+import { normalizeSettings, scoreOf } from "./scoring";
 
 export type LoadedGameState =
   | { notFound: true }
@@ -22,20 +22,24 @@ export type LoadedGameState =
 
 export function buildBoardFromRecords(
   categoryRecords: QuestionCategoryRecord[],
-  allQuestions: QuestionRecord[]
+  allQuestions: QuestionRecord[],
+  settings?: GameRecord["settings"]
 ): { categories: string[]; questions: BoardQuestion[][] } {
+  const s = normalizeSettings(settings);
   const categories = categoryRecords.map((c) => c.name);
   const questions = categoryRecords.map((cat) =>
     allQuestions
       .filter((q) => q.category === cat.id)
       .sort((a, b) => (a.difficulty ?? 0) - (b.difficulty ?? 0))
-      .map((q, i) => ({
-        id: q.id,
-        question: q.question,
-        answer: q.answer,
-        // The stored value (e.g. from an imported board), else 100, 200, ...
-        value: Number(q.value) > 0 ? Number(q.value) : (i + 1) * 100,
-      }))
+      .map((q, i) => {
+        const base = s.customValues[i] ?? (Number(q.value) > 0 ? Number(q.value) : (i + 1) * 100);
+        return {
+          id: q.id,
+          question: q.question,
+          answer: q.answer,
+          value: Math.round(base * s.pointMultiplier),
+        };
+      })
   );
   return { categories, questions };
 }
@@ -103,7 +107,7 @@ export async function loadGameState(
   const categoryRecords = orderByIds(categoryIds, fetchedCategories);
   const teamRecords = orderByIds(teamIds, fetchedTeams);
 
-  const { categories, questions } = buildBoardFromRecords(categoryRecords, allQuestions);
+  const { categories, questions } = buildBoardFromRecords(categoryRecords, allQuestions, game.settings);
   const teams: GameTeam[] = teamRecords.map((t) => ({
     id: t.id,
     name: t.name,

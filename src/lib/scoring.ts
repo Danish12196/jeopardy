@@ -1,6 +1,59 @@
 // Score helpers shared by the host, TV and phones.
+import type { GameSettings, WrongPenalty } from "./pbTypes";
 
 export type TeamScore = { id: string; score: number };
+
+export const DEFAULT_GAME_SETTINGS: Required<GameSettings> = {
+  wrongPenalty: "full",
+  stealEnabled: false,
+  pointMultiplier: 1,
+  customValues: [],
+  wildcardEnabled: true,
+  wildcardCapMode: "standard",
+  wildcardFixedCap: 1000,
+  allInEnabled: true,
+  allInCapMode: "score",
+};
+
+export function normalizeSettings(settings?: GameSettings | null): Required<GameSettings> {
+  const multiplier = Number(settings?.pointMultiplier);
+  const fixedCap = Number(settings?.wildcardFixedCap);
+  return {
+    wrongPenalty: settings?.wrongPenalty ?? DEFAULT_GAME_SETTINGS.wrongPenalty,
+    stealEnabled: settings?.stealEnabled ?? DEFAULT_GAME_SETTINGS.stealEnabled,
+    pointMultiplier: Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1,
+    customValues: Array.isArray(settings?.customValues)
+      ? settings.customValues.map((v) => Number(v)).filter((v) => Number.isFinite(v) && v > 0)
+      : [],
+    wildcardEnabled: settings?.wildcardEnabled ?? DEFAULT_GAME_SETTINGS.wildcardEnabled,
+    wildcardCapMode: settings?.wildcardCapMode ?? DEFAULT_GAME_SETTINGS.wildcardCapMode,
+    wildcardFixedCap: Number.isFinite(fixedCap) && fixedCap >= 0 ? Math.round(fixedCap) : DEFAULT_GAME_SETTINGS.wildcardFixedCap,
+    allInEnabled: settings?.allInEnabled ?? DEFAULT_GAME_SETTINGS.allInEnabled,
+    allInCapMode: settings?.allInCapMode ?? DEFAULT_GAME_SETTINGS.allInCapMode,
+  };
+}
+
+export function wrongDelta(value: number, penalty: WrongPenalty = "full"): number {
+  const abs = Math.abs(Math.round(value));
+  if (penalty === "none") return 0;
+  if (penalty === "half") return -Math.round(abs / 2);
+  return -abs;
+}
+
+export function effectiveBoardValues(
+  baseValues: number[] | undefined,
+  rowCount: number,
+  settings?: GameSettings | null
+): number[] {
+  const s = normalizeSettings(settings);
+  const out: number[] = [];
+  for (let i = 0; i < rowCount; i++) {
+    const custom = s.customValues[i];
+    const base = custom ?? baseValues?.[i] ?? (i + 1) * 100;
+    out.push(Math.round(base * s.pointMultiplier));
+  }
+  return out;
+}
 
 export function scoreOf(scores: TeamScore[] | undefined, teamId: string): number {
   return scores?.find((s) => s.id === teamId)?.score ?? 0;
@@ -13,13 +66,26 @@ export function applyDelta(scores: TeamScore[], teamId: string, delta: number): 
   return has ? next : [...next, { id: teamId, score: delta }];
 }
 
-/** Wildcard wager cap: the team's score or the board's top value, whichever is higher. */
-export function wildcardMaxWager(score: number, topValue: number): number {
+/** Wildcard wager cap: configurable via settings, defaults to max(score, topValue, 0). */
+export function wildcardMaxWager(
+  score: number,
+  topValue: number,
+  settings?: GameSettings | null
+): number {
+  const s = normalizeSettings(settings);
+  if (s.wildcardCapMode === "unlimited") return 1_000_000;
+  if (s.wildcardCapMode === "fixed") return Math.max(s.wildcardFixedCap, 0);
   return Math.max(score, topValue, 0);
 }
 
-/** All In wager cap: whatever the team has (nothing if at or below zero). */
-export function allInMaxWager(score: number): number {
+/** All In wager cap: configurable via settings, defaults to max(score, 0). */
+export function allInMaxWager(
+  score: number,
+  settings?: GameSettings | null,
+  topValue = 0
+): number {
+  const s = normalizeSettings(settings);
+  if (s.allInCapMode === "score_or_top") return Math.max(score, topValue, 0);
   return Math.max(score, 0);
 }
 

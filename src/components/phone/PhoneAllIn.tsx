@@ -26,7 +26,8 @@ type Props = {
 export default function PhoneAllIn({ game, teamId, teams }: Props) {
   const scores: TeamScore[] = game.teamScores || [];
   const myScore = scoreOf(scores, teamId);
-  const max = allInMaxWager(myScore);
+  const topValue = Math.max(0, ...(game.values ?? [0]));
+  const max = allInMaxWager(myScore, game.settings, topValue);
   const [amount, setAmount] = useState("");
   const [locked, setLocked] = useState<number | null>(() => savedWager(game.id, teamId));
   const [error, setError] = useState<string | null>(null);

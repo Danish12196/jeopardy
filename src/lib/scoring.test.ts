@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { allInMaxWager, applyDelta, clampWager, pushHistory, restoreSnapshot, revealOrder, scoreOf, standings, wildcardMaxWager, MAX_UNDO, type ScoreSnapshot } from "./scoring";
+import {
+  allInMaxWager,
+  applyDelta,
+  clampWager,
+  effectiveBoardValues,
+  normalizeSettings,
+  pushHistory,
+  restoreSnapshot,
+  revealOrder,
+  scoreOf,
+  standings,
+  wildcardMaxWager,
+  wrongDelta,
+  MAX_UNDO,
+  type ScoreSnapshot,
+} from "./scoring";
 
 describe("scoring", () => {
   const scores = [{ id: "a", score: 300 }, { id: "b", score: -100 }];
@@ -11,19 +26,46 @@ describe("scoring", () => {
     expect(scoreOf(scores, "zzz")).toBe(0);
   });
 
-  it("caps wildcard wagers at the higher of score and top value", () => {
+  it("caps wildcard wagers at the higher of score and top value, or per settings", () => {
     expect(wildcardMaxWager(1200, 500)).toBe(1200);
     expect(wildcardMaxWager(200, 500)).toBe(500);
     expect(wildcardMaxWager(-300, 500)).toBe(500);
+    expect(wildcardMaxWager(200, 500, { wildcardCapMode: "fixed", wildcardFixedCap: 750 })).toBe(750);
+    expect(wildcardMaxWager(200, 500, { wildcardCapMode: "unlimited" })).toBe(1_000_000);
   });
 
-  it("caps All In wagers at the team's score", () => {
+  it("caps All In wagers at the team's score or top value per settings", () => {
     expect(allInMaxWager(800)).toBe(800);
     expect(allInMaxWager(-50)).toBe(0);
+    expect(allInMaxWager(100, { allInCapMode: "score_or_top" }, 500)).toBe(500);
     expect(clampWager(900, 800)).toBe(800);
     expect(clampWager(-5, 800)).toBe(0);
     expect(clampWager(NaN, 800)).toBe(0);
     expect(clampWager(12.6, 800)).toBe(13);
+  });
+
+  it("computes wrong-answer penalties", () => {
+    expect(wrongDelta(200, "full")).toBe(-200);
+    expect(wrongDelta(200, "half")).toBe(-100);
+    expect(wrongDelta(150, "half")).toBe(-75);
+    expect(wrongDelta(200, "none")).toBe(0);
+  });
+
+  it("computes effective board values with custom values and multiplier", () => {
+    expect(effectiveBoardValues([100, 200, 300], 3, undefined)).toEqual([100, 200, 300]);
+    expect(effectiveBoardValues([100, 200, 300], 3, { pointMultiplier: 2 })).toEqual([200, 400, 600]);
+    expect(
+      effectiveBoardValues([100, 200, 300], 3, { customValues: [250, 500], pointMultiplier: 2 })
+    ).toEqual([500, 1000, 600]);
+  });
+
+  it("normalizes settings with defaults", () => {
+    const s = normalizeSettings(undefined);
+    expect(s.wrongPenalty).toBe("full");
+    expect(s.stealEnabled).toBe(false);
+    expect(s.pointMultiplier).toBe(1);
+    expect(s.wildcardEnabled).toBe(true);
+    expect(s.allInEnabled).toBe(true);
   });
 
   it("orders standings and the reveal", () => {

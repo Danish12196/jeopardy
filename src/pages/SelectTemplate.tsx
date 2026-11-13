@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
 import { makeGameCode } from "@/lib/gameCode";
-import type { GameTemplateRecord, QuestionCategoryRecord, QuestionRecord } from "@/lib/pbTypes";
+import type { GameSettings, GameTemplateRecord, QuestionCategoryRecord, QuestionRecord } from "@/lib/pbTypes";
+import GameRulesSettings from "@/components/setup/GameRulesSettings";
+import { DEFAULT_GAME_SETTINGS, effectiveBoardValues, normalizeSettings } from "@/lib/scoring";
 import {
   Select,
   SelectContent,
@@ -29,6 +31,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
 
   const [templates, setTemplates] = useState<GameTemplateRecord[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<GameTemplateRecord | null>(null);
+  const [settings, setSettings] = useState<GameSettings>({ ...DEFAULT_GAME_SETTINGS });
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -109,6 +112,7 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
       for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
         const uniqueID = makeGameCode();
         try {
+          const normalizedSettings = normalizeSettings(settings);
           await pb.collection("games").create({
             title: `Game: ${selectedTemplate.title}`,
             uniqueID,
@@ -116,13 +120,15 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
             host: pb.authStore.record?.id,
             teams: selectedTeams,
             categories,
-            values,
+            values: effectiveBoardValues(values, values.length, normalizedSettings),
             teamScores: selectedTeams.map((t) => ({ id: t, score: 0 })),
             answeredQuestions: [],
             buzzRound: 0,
             showAnswer: false,
             buzzerUnlocked: false,
             hostForceShowQuestion: false,
+            settings: normalizedSettings,
+            passedTeams: [],
           });
           createdCode = uniqueID;
           break;
@@ -202,6 +208,10 @@ export default function SelectTemplate({ selectedTeams }: { selectedTeams: strin
         </motion.div>
       )}
       </AnimatePresence>
+
+      {selectedTemplate && (
+        <GameRulesSettings settings={settings} onChange={setSettings} />
+      )}
 
       <Button
         onClick={startGame}

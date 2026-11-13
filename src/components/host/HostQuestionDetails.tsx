@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import WildcardPanel from "@/components/host/WildcardPanel";
-import type { BoardQuestion, GameTeam, WildcardState } from "@/lib/pbTypes";
+import type { BoardQuestion, GameSettings, GameTeam, WildcardState } from "@/lib/pbTypes";
 import type { TeamScore } from "@/lib/scoring";
 
 type Props = {
@@ -17,6 +17,7 @@ type Props = {
   teams: GameTeam[];
   scores: TeamScore[];
   topValue: number;
+  settings?: GameSettings;
   hasBuzzes: boolean;
   hostForceShowQuestion: boolean;
   onLockInWildcard: (team: string, wager: number) => void;
@@ -35,6 +36,7 @@ export default function HostQuestionDetails({
   teams,
   scores,
   topValue,
+  settings,
   hasBuzzes,
   hostForceShowQuestion,
   onLockInWildcard,
@@ -80,6 +82,7 @@ export default function HostQuestionDetails({
             teams={teams}
             scores={scores}
             topValue={topValue}
+            settings={settings}
             onLockIn={onLockInWildcard}
             onResult={onScoreWildcard}
           />

@@ -10,6 +10,7 @@ import {
   allInMaxWager,
   applyDelta,
   clampWager,
+  normalizeSettings,
   pushHistory,
   restoreSnapshot,
   revealOrder,
@@ -43,7 +44,10 @@ export function useHostGame(uniqueID: string | undefined) {
   const scoreInFlightRef = useRef(false);
 
   const { connected, reloadKey } = useLiveConnection();
-  const buzzQueue = useBuzzes(game?.id, game?.buzzRound ?? 0, reloadKey);
+  const rawBuzzQueue = useBuzzes(game?.id, game?.buzzRound ?? 0, reloadKey);
+  const settings = normalizeSettings(game?.settings);
+  const passedTeams: string[] = game?.passedTeams || [];
+  const buzzQueue = rawBuzzQueue.filter((b) => !passedTeams.includes(b.team));
   const allInPhase: string = game?.allInPhase || "";
   const allIn: AllInState = game?.allIn || {};
   const wagers = useWagers(game?.id, !!allInPhase, `${allInPhase}-${reloadKey}`);
@@ -178,6 +182,7 @@ export function useHostGame(uniqueID: string | undefined) {
         showAnswer: false,
         buzzerUnlocked: isWildcard ? false : autoUnlock,
         "buzzRound+": 1,
+        passedTeams: [],
         hostForceShowQuestion: false,
         wildcard: isWildcard
           ? { question: questionData.id, team: "", wager: null, resolved: false }
@@ -204,6 +209,7 @@ export function useHostGame(uniqueID: string | undefined) {
       currentActiveQuestion: null,
       buzzerUnlocked: false,
       "buzzRound+": 1,
+      passedTeams: [],
       wildcard: null,
     });
 
@@ -229,7 +235,8 @@ export function useHostGame(uniqueID: string | undefined) {
     const revealed = allIn.revealed || 0;
     const team = order[revealed];
     if (!team) return;
-    const wager = clampWager(wagers[team] ?? 0, allInMaxWager(scoreOf(scores, team)));
+    const topValue = Math.max(0, ...questions.flat().map((q) => q.value || 0));
+    const wager = clampWager(wagers[team] ?? 0, allInMaxWager(scoreOf(scores, team), settings, topValue));
     const delta = allIn.results?.[team] ? wager : -wager;
     await changeScores(applyDelta(scores, team, delta), {
       allIn: {
@@ -255,6 +262,7 @@ export function useHostGame(uniqueID: string | undefined) {
         showAnswer: false,
         buzzerUnlocked: false,
         "buzzRound+": 1,
+        passedTeams: [],
         hostForceShowQuestion: false,
         wildcard: null,
       });
@@ -270,6 +278,7 @@ export function useHostGame(uniqueID: string | undefined) {
         showAnswer: false,
         buzzerUnlocked: false,
         "buzzRound+": 1,
+        passedTeams: [],
         answeredQuestions: updatedUsed,
         hostForceShowQuestion: false,
         wildcard: null,
@@ -281,7 +290,7 @@ export function useHostGame(uniqueID: string | undefined) {
   const toggleBuzzer = (unlock: boolean) =>
     updateGame({
       buzzerUnlocked: unlock,
-      ...(unlock ? { "buzzRound+": 1 } : {}),
+      ...(unlock ? { "buzzRound+": 1, passedTeams: [] } : {}),
     });
 
   const revealAnswer = () =>
@@ -290,16 +299,20 @@ export function useHostGame(uniqueID: string | undefined) {
       buzzerUnlocked: false,
     });
 
-  const updateTeamScore = (teamId: string, value: number) =>
-    changeScores(applyDelta(scores, teamId, value));
+  const updateTeamScore = (teamId: string, value: number, isWrong = false) => {
+    const shouldPass = isWrong && settings.stealEnabled && buzzQueue[0]?.team === teamId;
+    const extra = shouldPass ? { passedTeams: [...passedTeams, teamId] } : {};
+    return changeScores(applyDelta(scores, teamId, value), extra);
+  };
 
-  const clearBuzzers = () => updateGame({ "buzzRound+": 1 });
+  const clearBuzzers = () => updateGame({ "buzzRound+": 1, passedTeams: [] });
 
   const forceShowQuestion = () =>
     updateGame({ hostForceShowQuestion: !game?.hostForceShowQuestion });
 
   return {
     game,
+    settings,
     notFound,
     categories,
     questions,

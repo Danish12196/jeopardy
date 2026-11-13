@@ -2,23 +2,24 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { clampWager, scoreOf, wildcardMaxWager, type TeamScore } from "@/lib/scoring";
-import type { WildcardState } from "@/lib/pbTypes";
+import type { GameSettings, WildcardState } from "@/lib/pbTypes";
 
 type Props = {
   wildcard: WildcardState;
   teams: { id: string; name: string }[];
   scores: TeamScore[];
   topValue: number;
+  settings?: GameSettings;
   onLockIn: (team: string, wager: number) => void;
   onResult: (correct: boolean) => void;
 };
 
 /** Host controls for a Wildcard tile: pick the team, enter the wager, mark right or wrong. */
-export default function WildcardPanel({ wildcard, teams, scores, topValue, onLockIn, onResult }: Props) {
+export default function WildcardPanel({ wildcard, teams, scores, topValue, settings, onLockIn, onResult }: Props) {
   const [team, setTeam] = useState(wildcard.team || "");
   const [wager, setWager] = useState("");
   const locked = wildcard.wager !== null && wildcard.wager !== undefined && !!wildcard.team;
-  const max = team ? wildcardMaxWager(scoreOf(scores, team), topValue) : 0;
+  const max = team ? wildcardMaxWager(scoreOf(scores, team), topValue, settings) : 0;
   const teamName = (id?: string) => teams.find((t) => t.id === id)?.name ?? "";
 
   if (wildcard.resolved) {

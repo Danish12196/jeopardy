@@ -12,6 +12,7 @@ import HostHeader from "@/components/host/HostHeader";
 import EndGameDialog from "@/components/host/EndGameDialog";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 import { useHostGame } from "@/hooks/useHostGame";
+import { effectiveBoardValues } from "@/lib/scoring";
 
 export default function GameHost() {
   const { uniqueID } = useParams();
@@ -19,6 +20,7 @@ export default function GameHost() {
 
   const {
     game,
+    settings,
     notFound,
     categories,
     questions,
@@ -64,7 +66,7 @@ export default function GameHost() {
   } = useHostGame(uniqueID);
 
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
-  const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
+  const values = effectiveBoardValues(game?.values, rowCount, settings);
   const topValue = Math.max(0, ...questions.flat().map((q) => q.value || 0));
 
   if (notFound) {
@@ -205,6 +207,7 @@ export default function GameHost() {
                 teams={teams}
                 scores={scores}
                 topValue={topValue}
+                settings={settings}
                 hasBuzzes={buzzQueue.length > 0}
                 hostForceShowQuestion={Boolean(game.hostForceShowQuestion)}
                 onLockInWildcard={lockInWildcard}
@@ -236,6 +239,8 @@ export default function GameHost() {
             canUndo={(game.scoreHistory?.length ?? 0) > 0}
             scorePending={scorePending}
             selectedValue={selectedTile?.value || 100}
+            wrongPenalty={settings.wrongPenalty}
+            stealEnabled={settings.stealEnabled}
             adjust={adjust}
             onAdjustChange={(teamId, value) => setAdjust((a) => ({ ...a, [teamId]: value }))}
             onApplyAdjust={applyAdjust}

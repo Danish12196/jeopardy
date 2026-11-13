@@ -44,7 +44,9 @@ export default function BuzzerPage() {
 
   const { connected, reloadKey } = useLiveConnection();
   const round = game?.buzzRound ?? 0;
-  const buzzQueue = useBuzzes(game?.id, round, reloadKey);
+  const rawBuzzQueue = useBuzzes(game?.id, round, reloadKey);
+  const passedTeams = game?.passedTeams || [];
+  const buzzQueue = rawBuzzQueue.filter((b) => !passedTeams.includes(b.team));
 
   useEffect(() => {
     // Attempt to restore team selection from local storage
