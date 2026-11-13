@@ -169,3 +169,42 @@ test("Game rules settings: 2x multiplier, half wrong penalty, and steal/pass", a
 
   await Promise.all([tv.ctx.close(), p1.ctx.close(), p2.ctx.close()]);
 });
+
+test("Question timers: buzz timer auto-starts on TV and phone, host can pause, resume, and clear", async ({ page: host, browser }) => {
+  await loginAsHost(host);
+  await host.goto("/");
+  await host.getByRole("button", { name: "Team 1" }).click();
+  await host.getByRole("combobox").click();
+  await host.getByRole("option", { name: /Test Board/ }).click();
+
+  await host.getByRole("button", { name: /Game Rules & Settings/ }).click();
+  await host.getByLabel("Buzz Window Timer (seconds, 0 = off)").fill("15");
+
+  await host.getByRole("button", { name: "Start Game" }).click();
+  await expect(host).toHaveURL(/\/game\/[A-Z0-9]+\/host/);
+  const uniqueID = host.url().match(/\/game\/([A-Z0-9]+)\/host/)![1];
+
+  const tv = await openTv(browser, uniqueID);
+  const phone = await openBuzzer(browser, uniqueID, "Team 1");
+
+  await host.getByRole("button", { name: "100", exact: true }).first().click();
+
+  // Timer is visible on host, TV, and phone.
+  await expect(host.getByTestId("game-timer")).toContainText("Buzz");
+  await expect(tv.page.getByTestId("game-timer")).toContainText("Buzz");
+  await expect(phone.page.getByTestId("game-timer")).toContainText("Buzz");
+
+  // Host can pause and resume.
+  await host.getByRole("button", { name: "Pause Timer" }).click();
+  await expect(host.getByTestId("game-timer")).toContainText("(Paused)");
+  await expect(tv.page.getByTestId("game-timer")).toContainText("(Paused)");
+
+  await host.getByRole("button", { name: "Resume Timer" }).click();
+  await expect(host.getByTestId("game-timer")).not.toContainText("(Paused)");
+
+  await host.getByRole("button", { name: "Clear Timer" }).click();
+  await expect(host.getByTestId("game-timer")).toHaveCount(0);
+  await expect(tv.page.getByTestId("game-timer")).toHaveCount(0);
+
+  await Promise.all([tv.ctx.close(), phone.ctx.close()]);
+});

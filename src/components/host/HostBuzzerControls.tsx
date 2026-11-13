@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import TimerDisplay from "@/components/TimerDisplay";
 import { buzzGap, type Buzz } from "@/lib/buzzes";
 import type { GameTeam } from "@/lib/pbTypes";
 
@@ -11,6 +12,14 @@ type Props = {
   onClearBuzzers: () => void;
   buzzQueue: Buzz[];
   teams: GameTeam[];
+  timerEndsAt?: string;
+  timerType?: "buzz" | "answer" | "";
+  timerPausedRemaining?: number | null;
+  answerTimerSeconds?: number;
+  onStartTimer?: (type: "buzz" | "answer", seconds: number) => void;
+  onPauseTimer?: () => void;
+  onResumeTimer?: () => void;
+  onClearTimer?: () => void;
 };
 
 export default function HostBuzzerControls({
@@ -21,7 +30,18 @@ export default function HostBuzzerControls({
   onClearBuzzers,
   buzzQueue,
   teams,
+  timerEndsAt,
+  timerType,
+  timerPausedRemaining,
+  answerTimerSeconds = 0,
+  onStartTimer,
+  onPauseTimer,
+  onResumeTimer,
+  onClearTimer,
 }: Props) {
+  const hasTimer = Boolean(timerEndsAt) || (typeof timerPausedRemaining === "number" && timerPausedRemaining > 0);
+  const isPaused = typeof timerPausedRemaining === "number" && timerPausedRemaining > 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -43,7 +63,7 @@ export default function HostBuzzerControls({
         </label>
       </div>
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex gap-4 mb-4">
         {buzzerUnlocked ? (
           <Button
             onClick={() => onToggleBuzzer(false)}
@@ -69,6 +89,40 @@ export default function HostBuzzerControls({
           Clear Queue
         </Button>
       </div>
+
+      {onStartTimer && (
+        <div className="flex flex-wrap items-center gap-2 mb-6 bg-background/40 p-3 rounded-xl border border-border/40">
+          <TimerDisplay
+            timerEndsAt={timerEndsAt}
+            timerType={timerType}
+            timerPausedRemaining={timerPausedRemaining}
+          />
+          <div className="flex flex-wrap gap-2 ml-auto">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onStartTimer("answer", answerTimerSeconds > 0 ? answerTimerSeconds : 15)}
+            >
+              Start Answer Timer ({answerTimerSeconds > 0 ? answerTimerSeconds : 15}s)
+            </Button>
+            {hasTimer && !isPaused && onPauseTimer && (
+              <Button size="sm" variant="outline" onClick={onPauseTimer}>
+                Pause Timer
+              </Button>
+            )}
+            {isPaused && onResumeTimer && (
+              <Button size="sm" variant="brand" onClick={onResumeTimer}>
+                Resume Timer
+              </Button>
+            )}
+            {hasTimer && onClearTimer && (
+              <Button size="sm" variant="ghost" onClick={onClearTimer}>
+                Clear Timer
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="bg-background/40 p-4 rounded-xl border border-border/40 shadow-inner min-h-[120px]">
         <h4 className="font-bold mb-3 text-muted-foreground uppercase text-xs tracking-wider">

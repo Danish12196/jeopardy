@@ -150,6 +150,9 @@ export default function GameBoard() {
               teams={teams}
               showAnswer={showAnswer}
               hostForceShowQuestion={hostForceShowQuestion}
+              timerEndsAt={live?.timerEndsAt}
+              timerType={live?.timerType}
+              timerPausedRemaining={live?.timerPausedRemaining}
             />
           )}
         </AnimatePresence>

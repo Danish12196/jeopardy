@@ -8,6 +8,7 @@ import { buzzPosition } from "@/lib/buzzes";
 import PhoneAllIn from "@/components/phone/PhoneAllIn";
 import { useLiveConnection } from "@/hooks/useLiveConnection";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
+import TimerDisplay from "@/components/TimerDisplay";
 import type { GameRecord, TeamRecord } from "@/lib/pbTypes";
 
 
@@ -198,6 +199,13 @@ export default function BuzzerPage() {
         <PhoneAllIn key={`${game.id}-${selectedTeamId}`} game={game} teamId={selectedTeamId} teams={teams} />
       ) : (
       <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="mb-6">
+          <TimerDisplay
+            timerEndsAt={game.timerEndsAt}
+            timerType={game.timerType}
+            timerPausedRemaining={game.timerPausedRemaining}
+          />
+        </div>
         {/* Buzzer Button */}
         <motion.button
           onClick={handleBuzz}

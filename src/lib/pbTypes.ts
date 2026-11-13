@@ -77,6 +77,8 @@ export interface GameSettings {
   wildcardFixedCap?: number;
   allInEnabled?: boolean;
   allInCapMode?: AllInCapMode;
+  buzzTimerSeconds?: number;
+  answerTimerSeconds?: number;
 }
 
 export interface GameRecord extends RecordModel {
@@ -104,6 +106,9 @@ export interface GameRecord extends RecordModel {
   gameOver?: boolean;
   settings?: GameSettings;
   passedTeams?: string[];
+  timerEndsAt?: string;
+  timerType?: "buzz" | "answer" | "";
+  timerPausedRemaining?: number | null;
   expand?: {
     template?: GameTemplateRecord;
     teams?: TeamRecord[];
