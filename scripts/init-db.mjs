@@ -159,6 +159,15 @@ const COLLECTIONS = [
       { name: "difficulty", type: "number" },
       { name: "isPublic", type: "bool" },
       relation("user", "users", { single: true, required: true }),
+      {
+        name: "media",
+        type: "file",
+        maxSelect: 1,
+        maxSize: 20971520,
+        mimeTypes: ["image/*", "audio/*", "video/*"],
+      },
+      { name: "mediaUrl", type: "text" },
+      { name: "mediaType", type: "select", maxSelect: 1, values: ["image", "audio", "video"] },
     ],
   },
   {
@@ -210,6 +219,9 @@ const COLLECTIONS = [
       { name: "gameOver", type: "bool" },
       { name: "settings", type: "json", maxSize: 0 },
       { name: "passedTeams", type: "json", maxSize: 0 },
+      { name: "timerEndsAt", type: "text" },
+      { name: "timerType", type: "text" },
+      { name: "timerPausedRemaining", type: "number" },
     ],
     indexes: [
       "CREATE UNIQUE INDEX `idx_games_unique_id` ON `games` (`uniqueID`)",

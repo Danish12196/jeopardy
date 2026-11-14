@@ -9,6 +9,8 @@ const emptyRow = (): QuestionDraft => ({
   question: "",
   answer: "",
   hint: "",
+  mediaUrl: "",
+  mediaFile: null,
   value: 100,
   category: "",
   difficulty: "1",
@@ -48,17 +50,41 @@ export default function AddBulkQuestionForm() {
     setError(null);
     setSuccess(false);
 
-    const batch = pb.createBatch();
-    for (const q of validQuestions) {
-      batch.collection("questions").create({
-        ...q,
-        difficulty: Number(q.difficulty),
-        user: pb.authStore.record?.id,
-      });
-    }
+    const hasFiles = validQuestions.some((q) => q.mediaFile);
 
     try {
-      await batch.send();
+      if (hasFiles) {
+        for (const q of validQuestions) {
+          const form = new FormData();
+          form.append("question", q.question);
+          form.append("answer", q.answer);
+          form.append("hint", q.hint);
+          form.append("mediaUrl", q.mediaUrl ?? "");
+          form.append("value", String(q.value));
+          form.append("category", q.category);
+          form.append("difficulty", String(Number(q.difficulty)));
+          form.append("isPublic", String(q.isPublic));
+          if (pb.authStore.record?.id) form.append("user", pb.authStore.record.id);
+          if (q.mediaFile) form.append("media", q.mediaFile);
+          await pb.collection("questions").create(form);
+        }
+      } else {
+        const batch = pb.createBatch();
+        for (const q of validQuestions) {
+          batch.collection("questions").create({
+            question: q.question,
+            answer: q.answer,
+            hint: q.hint,
+            mediaUrl: q.mediaUrl ?? "",
+            value: q.value,
+            category: q.category,
+            difficulty: Number(q.difficulty),
+            isPublic: q.isPublic,
+            user: pb.authStore.record?.id,
+          });
+        }
+        await batch.send();
+      }
       setQuestions([emptyRow()]);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);

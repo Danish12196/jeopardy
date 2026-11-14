@@ -35,6 +35,8 @@ export interface QuestionCategoryRecord extends RecordModel {
   };
 }
 
+export type MediaKind = "image" | "audio" | "video";
+
 export interface QuestionRecord extends RecordModel {
   question: string;
   answer: string;
@@ -44,6 +46,9 @@ export interface QuestionRecord extends RecordModel {
   difficulty?: number;
   isPublic?: boolean;
   user?: string;
+  media?: string;
+  mediaUrl?: string;
+  mediaType?: MediaKind | "";
   expand?: {
     user?: RecordModel;
     category?: QuestionCategoryRecord;
@@ -77,6 +82,8 @@ export interface GameSettings {
   wildcardFixedCap?: number;
   allInEnabled?: boolean;
   allInCapMode?: AllInCapMode;
+  buzzTimerSeconds?: number;
+  answerTimerSeconds?: number;
 }
 
 export interface GameRecord extends RecordModel {
@@ -104,6 +111,9 @@ export interface GameRecord extends RecordModel {
   gameOver?: boolean;
   settings?: GameSettings;
   passedTeams?: string[];
+  timerEndsAt?: string;
+  timerType?: "buzz" | "answer" | "";
+  timerPausedRemaining?: number | null;
   expand?: {
     template?: GameTemplateRecord;
     teams?: TeamRecord[];
@@ -115,6 +125,8 @@ export interface BoardQuestion {
   question: string;
   answer: string;
   value: number;
+  mediaUrl?: string;
+  mediaType?: MediaKind;
 }
 
 export interface GameTeam {

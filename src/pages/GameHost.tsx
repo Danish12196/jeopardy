@@ -63,6 +63,10 @@ export default function GameHost() {
     updateTeamScore,
     clearBuzzers,
     forceShowQuestion,
+    startTimer,
+    pauseTimer,
+    resumeTimer,
+    clearTimer,
   } = useHostGame(uniqueID);
 
   const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
@@ -230,6 +234,14 @@ export default function GameHost() {
             onClearBuzzers={clearBuzzers}
             buzzQueue={buzzQueue}
             teams={teams}
+            timerEndsAt={game.timerEndsAt}
+            timerType={game.timerType}
+            timerPausedRemaining={game.timerPausedRemaining}
+            answerTimerSeconds={settings.answerTimerSeconds}
+            onStartTimer={startTimer}
+            onPauseTimer={pauseTimer}
+            onResumeTimer={resumeTimer}
+            onClearTimer={clearTimer}
           />
 
           <HostTeamScores

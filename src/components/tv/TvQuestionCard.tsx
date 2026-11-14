@@ -1,4 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
+import TimerDisplay from "@/components/TimerDisplay";
+import QuestionMedia from "@/components/QuestionMedia";
 import { buzzGap, type Buzz } from "@/lib/buzzes";
 import type { BoardQuestion, GameTeam, WildcardState } from "@/lib/pbTypes";
 
@@ -9,6 +11,9 @@ type Props = {
   teams: GameTeam[];
   showAnswer: boolean;
   hostForceShowQuestion: boolean;
+  timerEndsAt?: string;
+  timerType?: "buzz" | "answer" | "";
+  timerPausedRemaining?: number | null;
 };
 
 export default function TvQuestionCard({
@@ -18,6 +23,9 @@ export default function TvQuestionCard({
   teams,
   showAnswer,
   hostForceShowQuestion,
+  timerEndsAt,
+  timerType,
+  timerPausedRemaining,
 }: Props) {
   const showQuestionText = wildcard
     ? (wildcard.wager !== null && wildcard.wager !== undefined) || showAnswer
@@ -33,6 +41,14 @@ export default function TvQuestionCard({
       className="w-full max-w-5xl aspect-video bg-tile/95 border-8 border-accent rounded-3xl shadow-[0_0_100px_rgba(255,90,31,0.3)] flex flex-col items-center justify-center p-8 md:p-16 text-center transform-style-3d relative overflow-hidden backdrop-blur-xl"
     >
       <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent pointer-events-none" />
+      <div className="absolute top-6 right-6 z-30">
+        <TimerDisplay
+          timerEndsAt={timerEndsAt}
+          timerType={timerType}
+          timerPausedRemaining={timerPausedRemaining}
+          className="text-lg md:text-xl px-5 py-2"
+        />
+      </div>
 
       {wildcard && (
         <div className="absolute top-8 z-20 flex flex-col items-center gap-2" data-testid="tv-wildcard">
@@ -83,15 +99,18 @@ export default function TvQuestionCard({
 
       <AnimatePresence mode="wait">
         {showQuestionText ? (
-          <motion.h1
+          <motion.div
             key="question-text"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="text-4xl md:text-7xl font-bold leading-tight md:leading-tight mb-8 z-10 text-foreground drop-shadow-xl"
+            className="flex flex-col items-center z-10 mb-6"
           >
-            {activeQuestion.question}
-          </motion.h1>
+            <h1 className="text-4xl md:text-6xl font-bold leading-tight md:leading-tight text-foreground drop-shadow-xl">
+              {activeQuestion.question}
+            </h1>
+            <QuestionMedia mediaUrl={activeQuestion.mediaUrl} mediaType={activeQuestion.mediaType} />
+          </motion.div>
         ) : (
           <motion.div key="hidden-question" className="h-32" />
         )}

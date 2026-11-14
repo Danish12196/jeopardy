@@ -13,11 +13,15 @@ export const DEFAULT_GAME_SETTINGS: Required<GameSettings> = {
   wildcardFixedCap: 1000,
   allInEnabled: true,
   allInCapMode: "score",
+  buzzTimerSeconds: 0,
+  answerTimerSeconds: 0,
 };
 
 export function normalizeSettings(settings?: GameSettings | null): Required<GameSettings> {
   const multiplier = Number(settings?.pointMultiplier);
   const fixedCap = Number(settings?.wildcardFixedCap);
+  const buzzTimer = Number(settings?.buzzTimerSeconds);
+  const answerTimer = Number(settings?.answerTimerSeconds);
   return {
     wrongPenalty: settings?.wrongPenalty ?? DEFAULT_GAME_SETTINGS.wrongPenalty,
     stealEnabled: settings?.stealEnabled ?? DEFAULT_GAME_SETTINGS.stealEnabled,
@@ -30,6 +34,8 @@ export function normalizeSettings(settings?: GameSettings | null): Required<Game
     wildcardFixedCap: Number.isFinite(fixedCap) && fixedCap >= 0 ? Math.round(fixedCap) : DEFAULT_GAME_SETTINGS.wildcardFixedCap,
     allInEnabled: settings?.allInEnabled ?? DEFAULT_GAME_SETTINGS.allInEnabled,
     allInCapMode: settings?.allInCapMode ?? DEFAULT_GAME_SETTINGS.allInCapMode,
+    buzzTimerSeconds: Number.isFinite(buzzTimer) && buzzTimer >= 0 ? Math.round(buzzTimer) : 0,
+    answerTimerSeconds: Number.isFinite(answerTimer) && answerTimer >= 0 ? Math.round(answerTimer) : 0,
   };
 }
 

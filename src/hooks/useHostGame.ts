@@ -5,6 +5,7 @@ import { useBuzzes } from "@/hooks/useBuzzes";
 import { useWagers } from "@/hooks/useWagers";
 import { useLiveConnection } from "@/hooks/useLiveConnection";
 import { findQuestionPosition, loadGameState } from "@/lib/loadGameState";
+import { computeRemainingSeconds, makeTimerEndsAt } from "@/lib/timer";
 import type { AllInState, BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
 import {
   allInMaxWager,
@@ -177,6 +178,7 @@ export function useHostGame(uniqueID: string | undefined) {
     const isWildcard = wildcards.includes(questionData.id);
 
     if (game?.id) {
+      const autoTimer = !isWildcard && autoUnlock && settings.buzzTimerSeconds > 0;
       await updateGame({
         currentActiveQuestion: questionData.id,
         showAnswer: false,
@@ -184,6 +186,9 @@ export function useHostGame(uniqueID: string | undefined) {
         "buzzRound+": 1,
         passedTeams: [],
         hostForceShowQuestion: false,
+        timerEndsAt: autoTimer ? makeTimerEndsAt(settings.buzzTimerSeconds) : "",
+        timerType: autoTimer ? "buzz" : "",
+        timerPausedRemaining: null,
         wildcard: isWildcard
           ? { question: questionData.id, team: "", wager: null, resolved: false }
           : null,
@@ -210,6 +215,9 @@ export function useHostGame(uniqueID: string | undefined) {
       buzzerUnlocked: false,
       "buzzRound+": 1,
       passedTeams: [],
+      timerEndsAt: "",
+      timerType: "",
+      timerPausedRemaining: null,
       wildcard: null,
     });
 
@@ -253,6 +261,9 @@ export function useHostGame(uniqueID: string | undefined) {
       gameOver: true,
       currentActiveQuestion: null,
       buzzerUnlocked: false,
+      timerEndsAt: "",
+      timerType: "",
+      timerPausedRemaining: null,
     });
 
   const cancelQuestion = async () => {
@@ -264,6 +275,9 @@ export function useHostGame(uniqueID: string | undefined) {
         "buzzRound+": 1,
         passedTeams: [],
         hostForceShowQuestion: false,
+        timerEndsAt: "",
+        timerType: "",
+        timerPausedRemaining: null,
         wildcard: null,
       });
     }
@@ -281,22 +295,46 @@ export function useHostGame(uniqueID: string | undefined) {
         passedTeams: [],
         answeredQuestions: updatedUsed,
         hostForceShowQuestion: false,
+        timerEndsAt: "",
+        timerType: "",
+        timerPausedRemaining: null,
         wildcard: null,
       });
     }
     setSelectedTile(null);
   };
 
-  const toggleBuzzer = (unlock: boolean) =>
-    updateGame({
+  const toggleBuzzer = (unlock: boolean) => {
+    const autoTimer = unlock && settings.buzzTimerSeconds > 0;
+    return updateGame({
       buzzerUnlocked: unlock,
-      ...(unlock ? { "buzzRound+": 1, passedTeams: [] } : {}),
+      ...(unlock
+        ? {
+            "buzzRound+": 1,
+            passedTeams: [],
+            ...(autoTimer
+              ? {
+                  timerEndsAt: makeTimerEndsAt(settings.buzzTimerSeconds),
+                  timerType: "buzz",
+                  timerPausedRemaining: null,
+                }
+              : {}),
+          }
+        : {
+            timerEndsAt: "",
+            timerType: "",
+            timerPausedRemaining: null,
+          }),
     });
+  };
 
   const revealAnswer = () =>
     updateGame({
       showAnswer: true,
       buzzerUnlocked: false,
+      timerEndsAt: "",
+      timerType: "",
+      timerPausedRemaining: null,
     });
 
   const updateTeamScore = (teamId: string, value: number, isWrong = false) => {
@@ -305,10 +343,48 @@ export function useHostGame(uniqueID: string | undefined) {
     return changeScores(applyDelta(scores, teamId, value), extra);
   };
 
-  const clearBuzzers = () => updateGame({ "buzzRound+": 1, passedTeams: [] });
+  const clearBuzzers = () =>
+    updateGame({
+      "buzzRound+": 1,
+      passedTeams: [],
+      timerEndsAt: "",
+      timerType: "",
+      timerPausedRemaining: null,
+    });
 
   const forceShowQuestion = () =>
     updateGame({ hostForceShowQuestion: !game?.hostForceShowQuestion });
+
+  const startTimer = (type: "buzz" | "answer", seconds: number) =>
+    updateGame({
+      timerEndsAt: makeTimerEndsAt(seconds),
+      timerType: type,
+      timerPausedRemaining: null,
+    });
+
+  const pauseTimer = () => {
+    const rem = computeRemainingSeconds(game?.timerEndsAt, game?.timerPausedRemaining);
+    if (rem === null || rem <= 0) return;
+    return updateGame({
+      timerPausedRemaining: rem,
+    });
+  };
+
+  const resumeTimer = () => {
+    const rem = game?.timerPausedRemaining;
+    if (typeof rem !== "number" || rem <= 0) return;
+    return updateGame({
+      timerEndsAt: makeTimerEndsAt(rem),
+      timerPausedRemaining: null,
+    });
+  };
+
+  const clearTimer = () =>
+    updateGame({
+      timerEndsAt: "",
+      timerType: "",
+      timerPausedRemaining: null,
+    });
 
   return {
     game,
@@ -355,5 +431,9 @@ export function useHostGame(uniqueID: string | undefined) {
     updateTeamScore,
     clearBuzzers,
     forceShowQuestion,
+    startTimer,
+    pauseTimer,
+    resumeTimer,
+    clearTimer,
   };
 }

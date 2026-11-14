@@ -25,6 +25,7 @@ export async function loadTemplateBoard(pb: PocketBase, templateId: string): Pro
           question: q.question,
           answer: q.answer,
           ...(q.hint ? { hint: q.hint } : {}),
+          ...(q.mediaUrl ? { mediaUrl: q.mediaUrl } : {}),
         })),
     })),
   };
@@ -45,6 +46,7 @@ export async function saveBoardAsTemplate(pb: PocketBase, board: Board, isPublic
           question: q.question,
           answer: q.answer,
           hint: q.hint ?? "",
+          mediaUrl: q.mediaUrl ?? "",
           value: q.value,
           difficulty: i + 1, // board order, lowest value first
           category: record.id,

@@ -1,14 +1,14 @@
 // Board import/export: CSV and JSON <-> a plain board shape, with validation
 // that reports problems per row before anything is saved.
 
-export type BoardQuestion = { value: number; question: string; answer: string; hint?: string };
+export type BoardQuestion = { value: number; question: string; answer: string; hint?: string; mediaUrl?: string };
 export type BoardCategory = { name: string; questions: BoardQuestion[] };
 export type Board = { title: string; categories: BoardCategory[] };
 
 export type BoardError = { row?: number; message: string };
 export type ParseResult = { board: Board | null; errors: BoardError[] };
 
-export const CSV_COLUMNS = ["category", "value", "question", "answer", "hint"] as const;
+export const CSV_COLUMNS = ["category", "value", "question", "answer", "hint", "mediaurl"] as const;
 
 /** Minimal RFC 4180 CSV reader: quoted fields, doubled quotes, CRLF, newlines inside quotes. */
 export function readCsv(text: string): string[][] {
@@ -42,10 +42,15 @@ const csvField = (v: string | number | undefined) => {
 };
 
 export function boardToCsv(board: Board): string {
-  const lines = [CSV_COLUMNS.join(",")];
+  const hasMedia = board.categories.some((c) => c.questions.some((q) => q.mediaUrl));
+  const cols = hasMedia ? ["category", "value", "question", "answer", "hint", "mediaUrl"] : ["category", "value", "question", "answer", "hint"];
+  const lines = [cols.join(",")];
   for (const cat of board.categories) {
     for (const q of cat.questions) {
-      lines.push([cat.name, q.value, q.question, q.answer, q.hint ?? ""].map(csvField).join(","));
+      const fields = hasMedia
+        ? [cat.name, q.value, q.question, q.answer, q.hint ?? "", q.mediaUrl ?? ""]
+        : [cat.name, q.value, q.question, q.answer, q.hint ?? ""];
+      lines.push(fields.map(csvField).join(","));
     }
   }
   return lines.join("\n") + "\n";
@@ -92,11 +97,12 @@ export function parseBoardCsv(text: string, title = "Imported board"): ParseResu
   const rows = readCsv(text);
   if (!rows.length) return { board: null, errors: [{ message: "The file is empty." }] };
   const header = rows[0].map((h) => h.trim().toLowerCase());
-  const expected = header.length === 4 ? CSV_COLUMNS.slice(0, 4) : CSV_COLUMNS;
+  const expected =
+    header.length === 4 ? CSV_COLUMNS.slice(0, 4) : header.length === 5 ? CSV_COLUMNS.slice(0, 5) : CSV_COLUMNS;
   if (header.length !== expected.length || expected.some((c, i) => header[i] !== c)) {
     return {
       board: null,
-      errors: [{ row: 1, message: `Header must be "${CSV_COLUMNS.join(",")}" (hint is optional). Got "${rows[0].join(",")}".` }],
+      errors: [{ row: 1, message: `Header must be "category,value,question,answer,hint" (hint and mediaUrl are optional). Got "${rows[0].join(",")}".` }],
     };
   }
   const errors: BoardError[] = [];
@@ -108,11 +114,17 @@ export function parseBoardCsv(text: string, title = "Imported board"): ParseResu
       errors.push({ row, message: `Row ${row}: expected ${header.length} columns, found ${r.length}.` });
       return;
     }
-    const [category, value, question, answer, hint] = r.map((f) => f.trim());
+    const [category, value, question, answer, hint, mediaUrl] = r.map((f) => f.trim());
     if (!category) { errors.push({ row, message: `Row ${row}: missing category.` }); return; }
     let ci = categories.findIndex((c) => c.name.toLowerCase() === category.toLowerCase());
     if (ci === -1) { ci = categories.push({ name: category, questions: [] }) - 1; rowNums.push([]); }
-    categories[ci].questions.push({ value: value === "" ? NaN : Number(value), question, answer, ...(hint ? { hint } : {}) });
+    categories[ci].questions.push({
+      value: value === "" ? NaN : Number(value),
+      question,
+      answer,
+      ...(hint ? { hint } : {}),
+      ...(mediaUrl ? { mediaUrl } : {}),
+    });
     rowNums[ci].push(row);
   });
   const board = { title, categories };

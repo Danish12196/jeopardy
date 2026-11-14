@@ -180,6 +180,36 @@ export default function GameRulesSettings({ settings, onChange }: Props) {
               </Select>
             )}
           </div>
+
+          <div>
+            <label htmlFor="buzz-timer-seconds" className="block font-semibold mb-1.5">
+              Buzz Window Timer (seconds, 0 = off)
+            </label>
+            <Input
+              id="buzz-timer-seconds"
+              type="number"
+              min={0}
+              max={300}
+              value={s.buzzTimerSeconds}
+              onChange={(e) => update({ buzzTimerSeconds: Math.max(0, Number(e.target.value) || 0) })}
+              className="bg-background"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="answer-timer-seconds" className="block font-semibold mb-1.5">
+              Answer Timer (seconds, 0 = off)
+            </label>
+            <Input
+              id="answer-timer-seconds"
+              type="number"
+              min={0}
+              max={300}
+              value={s.answerTimerSeconds}
+              onChange={(e) => update({ answerTimerSeconds: Math.max(0, Number(e.target.value) || 0) })}
+              className="bg-background"
+            />
+          </div>
         </div>
       )}
     </div>

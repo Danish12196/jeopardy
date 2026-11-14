@@ -14,6 +14,8 @@ export type QuestionDraft = {
   question: string;
   answer: string;
   hint: string;
+  mediaUrl?: string;
+  mediaFile?: File | null;
   value: number;
   category: string;
   difficulty: string;
@@ -61,12 +63,26 @@ export default function BulkQuestionRow({
           placeholder="Answer"
         />
       </td>
-      <td className="p-2">
+      <td className="p-2 space-y-1">
         <Input
           value={row.hint}
           onChange={(e) => onUpdate("hint", e.target.value)}
           className="bg-background text-foreground"
           placeholder="Hint (optional)"
+        />
+        <Input
+          value={row.mediaUrl ?? ""}
+          onChange={(e) => onUpdate("mediaUrl", e.target.value)}
+          className="bg-background text-foreground text-xs h-8"
+          placeholder="Media URL (optional)"
+          aria-label="Media URL"
+        />
+        <input
+          type="file"
+          accept="image/*,audio/*,video/*"
+          aria-label="Media file"
+          onChange={(e) => onUpdate("mediaFile", e.target.files?.[0] ?? null)}
+          className="block w-full text-[11px] text-muted-foreground"
         />
       </td>
       <td className="p-2">
