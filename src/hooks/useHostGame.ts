@@ -9,6 +9,7 @@ import { useLiveConnection } from "@/hooks/useLiveConnection";
 import { findQuestionPosition, loadGameState } from "@/lib/loadGameState";
 import { computeRemainingSeconds, makeTimerEndsAt } from "@/lib/timer";
 import { closestEstimationWinners, isTypedMatch, normalizeAnswer } from "@/lib/answerMatch";
+import { buildStandings } from "@/lib/historyStats";
 import type { AllInState, BoardQuestion, GameRecord, GameTeam, TeamRecord, TeamRegistrationRecord } from "@/lib/pbTypes";
 import {
   allInMaxWager,
@@ -262,8 +263,8 @@ export function useHostGame(uniqueID: string | undefined) {
     });
   };
 
-  const finishGame = () =>
-    updateGame({
+  const finishGame = async () => {
+    await updateGame({
       allInPhase: allInPhase ? "done" : "",
       gameOver: true,
       currentActiveQuestion: null,
@@ -272,6 +273,24 @@ export function useHostGame(uniqueID: string | undefined) {
       timerType: "",
       timerPausedRemaining: null,
     });
+    if (game?.host && !game.gameOver) {
+      const standings = buildStandings(teams, scores);
+      const top = standings[0];
+      try {
+        await pb.collection("game_history").create({
+          host: game.host,
+          gameCode: game.uniqueID,
+          title: game.title || `Game ${game.uniqueID}`,
+          winnerName: top?.name ?? "",
+          winnerScore: top?.score ?? 0,
+          standings,
+          finishedAt: new Date().toISOString(),
+        });
+      } catch {
+        // Non-fatal: game is still marked finished even if history write fails.
+      }
+    }
+  };
 
   const cancelQuestion = async () => {
     if (game?.id) {
@@ -460,6 +479,66 @@ export function useHostGame(uniqueID: string | undefined) {
     await pb.collection("team_registrations").update(reg.id, { status: "rejected" });
   };
 
+  const togglePause = async () => {
+    if (!game) return;
+    const nextPaused = !game.paused;
+    if (nextPaused && game.timerEndsAt) {
+      const rem = computeRemainingSeconds(game.timerEndsAt);
+      await updateGame({ paused: true, timerEndsAt: "", timerPausedRemaining: rem });
+    } else {
+      await updateGame({ paused: nextPaused });
+    }
+  };
+
+  const reopenQuestion = async (questionId: string) => {
+    if (!game?.id) return;
+    const updatedUsed = usedQuestions.filter((id) => id !== questionId);
+    setUsedQuestions(updatedUsed);
+    await updateGame({ answeredQuestions: updatedUsed });
+  };
+
+  const editActiveQuestion = async (questionId: string, nextQuestion: string, nextAnswer: string) => {
+    await pb.collection("questions").update(questionId, {
+      question: nextQuestion,
+      answer: nextAnswer,
+    });
+    setQuestions((prev) =>
+      prev.map((col) =>
+        col.map((q) => (q.id === questionId ? { ...q, question: nextQuestion, answer: nextAnswer } : q))
+      )
+    );
+    setSelectedTile((prev) =>
+      prev && prev.questionData.id === questionId
+        ? { ...prev, questionData: { ...prev.questionData, question: nextQuestion, answer: nextAnswer } }
+        : prev
+    );
+  };
+
+  const toggleLockTeam = async (teamId: string) => {
+    const locked = game?.lockedTeams ?? [];
+    const nextLocked = locked.includes(teamId)
+      ? locked.filter((id) => id !== teamId)
+      : [...locked, teamId];
+    await updateGame({ lockedTeams: nextLocked });
+  };
+
+  const kickTeam = async (teamId: string) => {
+    if (!game) return;
+    const nextTeams = (game.teams ?? []).filter((id) => id !== teamId);
+    const nextScores = scores.filter((s) => s.id !== teamId);
+    const nextLocked = (game.lockedTeams ?? []).filter((id) => id !== teamId);
+    setTeams((prev) => prev.filter((t) => t.id !== teamId));
+    await updateGame({ teams: nextTeams, teamScores: nextScores, lockedTeams: nextLocked });
+  };
+
+  const ensureCohostCode = async (): Promise<string | null> => {
+    if (!game) return null;
+    if (game.cohostCode) return game.cohostCode;
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    await updateGame({ cohostCode: code });
+    return code;
+  };
+
   return {
     game,
     settings,
@@ -514,5 +593,11 @@ export function useHostGame(uniqueID: string | undefined) {
     autoScoreAnswers,
     approveRegistration,
     rejectRegistration,
+    togglePause,
+    reopenQuestion,
+    editActiveQuestion,
+    toggleLockTeam,
+    kickTeam,
+    ensureCohostCode,
   };
 }

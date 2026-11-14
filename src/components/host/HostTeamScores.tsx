@@ -9,6 +9,7 @@ type Props = {
   teams: GameTeam[];
   scores: TeamScore[];
   buzzQueue: Buzz[];
+  lockedTeams?: string[];
   canUndo: boolean;
   scorePending: boolean;
   selectedValue: number;
@@ -19,12 +20,15 @@ type Props = {
   onApplyAdjust: (teamId: string) => void;
   onUpdateScore: (teamId: string, delta: number, isWrong?: boolean) => void;
   onUndo: () => void;
+  onToggleLock?: (teamId: string) => void;
+  onKickTeam?: (teamId: string) => void;
 };
 
 export default function HostTeamScores({
   teams,
   scores,
   buzzQueue,
+  lockedTeams = [],
   canUndo,
   scorePending,
   selectedValue,
@@ -35,6 +39,8 @@ export default function HostTeamScores({
   onApplyAdjust,
   onUpdateScore,
   onUndo,
+  onToggleLock,
+  onKickTeam,
 }: Props) {
   const wrongPoints = wrongDelta(selectedValue, wrongPenalty);
   return (
@@ -146,6 +152,29 @@ export default function HostTeamScores({
                 >
                   −
                 </motion.button>
+                {onToggleLock && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={(lockedTeams ?? []).includes(team.id) ? "destructive" : "outline"}
+                    onClick={() => onToggleLock(team.id)}
+                    aria-label={`${(lockedTeams ?? []).includes(team.id) ? "Unlock" : "Lock"} ${team.name}`}
+                  >
+                    {(lockedTeams ?? []).includes(team.id) ? "Unlock" : "Lock"}
+                  </Button>
+                )}
+                {onKickTeam && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onKickTeam(team.id)}
+                    aria-label={`Remove ${team.name}`}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    Kick
+                  </Button>
+                )}
               </div>
             </motion.div>
           ))}

@@ -452,6 +452,61 @@ test("Team customization: emoji, color, members, and phone self-registration wit
   await Promise.all([tv.ctx.close(), phoneCtx.close()]);
 });
 
+test("Host tools: pause/resume, lock team, reopen tile, edit Q/A, and keyboard shortcuts", async ({ page: host, browser }) => {
+  const { game } = await setup(host);
+  const uniqueID = game.uniqueID;
 
+  const tv = await openTv(browser, uniqueID);
+  const p1 = await openBuzzer(browser, uniqueID, "Team 1");
 
+  // Keyboard shortcuts modal via ? button
+  await host.getByRole("button", { name: "Keyboard Shortcuts" }).click();
+  await expect(host.getByTestId("shortcuts-modal")).toBeVisible();
+  await host.getByRole("button", { name: "Close" }).click();
+  await expect(host.getByTestId("shortcuts-modal")).toBeHidden();
+
+  // Pause & Resume
+  await host.getByTestId("host-pause-toggle").click();
+  await expect(tv.page.getByTestId("game-paused-overlay")).toBeVisible();
+  await expect(p1.page.getByTestId("game-paused-overlay")).toBeVisible();
+  await host.getByTestId("host-pause-toggle").click();
+  await expect(tv.page.getByTestId("game-paused-overlay")).toBeHidden();
+
+  // Lock & Unlock Team 1
+  await host.getByRole("button", { name: "Lock" }).first().click();
+  await expect(p1.page.getByTestId("phone-team-locked")).toBeVisible();
+  await host.getByRole("button", { name: "Unlock" }).first().click();
+  await expect(p1.page.getByTestId("phone-team-locked")).toBeHidden();
+
+  // Open tile, Edit Q/A mid-game, Done, then Reopen used tile
+  await host.getByRole("button", { name: "100", exact: true }).first().click();
+  await host.getByRole("button", { name: "Edit Q/A" }).click();
+  await host.getByLabel("Edit Question").fill("Edited question text?");
+  await host.getByRole("button", { name: "Save Q/A" }).click();
+  await expect(tv.page.getByText("Edited question text?")).toBeVisible();
+
+  await host.getByRole("button", { name: "Done (Back to Board)" }).click();
+  const reopenBtn = host.getByRole("button", { name: "Reopen 100" }).first();
+  await expect(reopenBtn).toBeVisible();
+  await reopenBtn.click();
+  await expect(host.getByRole("button", { name: "100", exact: true })).toHaveCount(4);
+
+  await Promise.all([tv.ctx.close(), p1.ctx.close()]);
+});
+
+test("Game history & stats: ending a game records standings and updates leaderboard", async ({ page: host }) => {
+  const { game } = await setup(host);
+
+  await host.getByRole("button", { name: "Correct: add points to Team 1" }).click();
+  await expect(host.getByTestId("host-score-Team 1")).toHaveText("100");
+
+  await host.getByRole("button", { name: "End game" }).click();
+  await host.getByRole("dialog").getByRole("button", { name: "End game" }).click();
+  await expect(host.getByRole("dialog")).toBeHidden();
+
+  await host.goto("/history");
+  await expect(host.getByTestId("history-leaderboard")).toContainText("Team 1");
+  await expect(host.getByTestId("history-games-list")).toContainText(game.uniqueID);
+  await expect(host.getByTestId("history-games-list")).toContainText("Team 1: 100");
+});
 

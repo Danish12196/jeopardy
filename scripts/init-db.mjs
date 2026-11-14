@@ -68,6 +68,14 @@ const GAME_RULES = {
   deleteRule: owns("host"),
 };
 
+const HISTORY_RULES = {
+  listRule: owns("host"),
+  viewRule: owns("host"),
+  createRule: owns("host"),
+  updateRule: `${owns("host")} && ${keepsOwner("host")}`,
+  deleteRule: owns("host"),
+};
+
 // Buzzes: one record per team per buzz round. Anyone can create one, but
 // only while the game's buzzers are open, only for the game's current round,
 // and only for a team that is in that game. The server sets `created`, which
@@ -243,6 +251,9 @@ const COLLECTIONS = [
       { name: "allInPhase", type: "text" },
       { name: "allIn", type: "json", maxSize: 0 },
       { name: "gameOver", type: "bool" },
+      { name: "paused", type: "bool" },
+      { name: "lockedTeams", type: "json", maxSize: 0 },
+      { name: "cohostCode", type: "text" },
       { name: "settings", type: "json", maxSize: 0 },
       { name: "passedTeams", type: "json", maxSize: 0 },
       { name: "timerEndsAt", type: "text" },
@@ -301,6 +312,19 @@ const COLLECTIONS = [
       { name: "emoji", type: "text" },
       { name: "members", type: "json", maxSize: 0 },
       { name: "status", type: "select", maxSelect: 1, values: ["pending", "approved", "rejected"], required: true },
+    ],
+  },
+  {
+    name: "game_history",
+    rules: HISTORY_RULES,
+    fields: [
+      relation("host", "users", { single: true, required: true, cascade: true }),
+      { name: "gameCode", type: "text", required: true },
+      { name: "title", type: "text", required: true },
+      { name: "winnerName", type: "text" },
+      { name: "winnerScore", type: "number", onlyInt: true },
+      { name: "standings", type: "json", maxSize: 0 },
+      { name: "finishedAt", type: "text" },
     ],
   },
 ];

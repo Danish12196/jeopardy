@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import WildcardPanel from "@/components/host/WildcardPanel";
 import QuestionMedia from "@/components/QuestionMedia";
 import type { AnswerRecord, BoardQuestion, GameSettings, GameTeam, WildcardState } from "@/lib/pbTypes";
@@ -23,6 +25,7 @@ type Props = {
   hasBuzzes: boolean;
   answers?: AnswerRecord[];
   onAutoScoreAnswers?: () => void;
+  onEditQuestion?: (questionId: string, nextQuestion: string, nextAnswer: string) => Promise<void>;
   hostForceShowQuestion: boolean;
   onLockInWildcard: (team: string, wager: number) => void;
   onScoreWildcard: (correct: boolean) => void;
@@ -44,6 +47,7 @@ export default function HostQuestionDetails({
   hasBuzzes,
   answers = [],
   onAutoScoreAnswers,
+  onEditQuestion,
   hostForceShowQuestion,
   onLockInWildcard,
   onScoreWildcard,
@@ -52,6 +56,10 @@ export default function HostQuestionDetails({
   onCancel,
   onDone,
 }: Props) {
+  const [editing, setEditing] = useState(false);
+  const [draftQ, setDraftQ] = useState(selectedTile.questionData.question);
+  const [draftA, setDraftA] = useState(selectedTile.questionData.answer);
+
   const qType = selectedTile.questionData.questionType || "buzzer";
   const expected = selectedTile.questionData.answer;
   const estWinners =
@@ -72,25 +80,71 @@ export default function HostQuestionDetails({
     >
       <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
 
-      <h2 className="text-3xl font-bold mb-4 text-accent drop-shadow-sm z-10">
-        {selectedTile.value} pts - <span className="text-foreground">{categoryName}</span>
-      </h2>
-      <div className="text-2xl mb-6 bg-background/50 p-6 rounded-xl border border-border/50 shadow-inner z-10 font-medium leading-relaxed">
-        <div>{selectedTile.questionData.question}</div>
-        <QuestionMedia
-          mediaUrl={selectedTile.questionData.mediaUrl}
-          mediaType={selectedTile.questionData.mediaType}
-          compact
-        />
+      <div className="flex items-center justify-between gap-2 mb-4 z-10">
+        <h2 className="text-3xl font-bold text-accent drop-shadow-sm">
+          {selectedTile.value} pts - <span className="text-foreground">{categoryName}</span>
+        </h2>
+        {onEditQuestion && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setDraftQ(selectedTile.questionData.question);
+              setDraftA(selectedTile.questionData.answer);
+              setEditing((v) => !v);
+            }}
+          >
+            {editing ? "Close Edit" : "Edit Q/A"}
+          </Button>
+        )}
       </div>
 
-      {/* Host always sees the answer */}
-      <div className="text-xl mb-6 text-accent bg-accent/10 p-6 rounded-xl font-bold border-2 border-accent/40 border-dashed z-10 shadow-sm flex flex-col gap-2">
-        <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">
-          Answer
-        </span>
-        {selectedTile.questionData.answer}
-      </div>
+      {editing && onEditQuestion ? (
+        <form
+          className="mb-6 bg-background/60 p-4 rounded-xl border border-accent/40 z-10 space-y-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!draftQ.trim() || !draftA.trim()) return;
+            await onEditQuestion(selectedTile.questionData.id, draftQ.trim(), draftA.trim());
+            setEditing(false);
+          }}
+        >
+          <Input
+            value={draftQ}
+            onChange={(e) => setDraftQ(e.target.value)}
+            aria-label="Edit Question"
+            className="bg-background"
+          />
+          <Input
+            value={draftA}
+            onChange={(e) => setDraftA(e.target.value)}
+            aria-label="Edit Answer"
+            className="bg-background"
+          />
+          <Button type="submit" size="sm" variant="brand">
+            Save Q/A
+          </Button>
+        </form>
+      ) : (
+        <>
+          <div className="text-2xl mb-6 bg-background/50 p-6 rounded-xl border border-border/50 shadow-inner z-10 font-medium leading-relaxed">
+            <div>{selectedTile.questionData.question}</div>
+            <QuestionMedia
+              mediaUrl={selectedTile.questionData.mediaUrl}
+              mediaType={selectedTile.questionData.mediaType}
+              compact
+            />
+          </div>
+
+          {/* Host always sees the answer */}
+          <div className="text-xl mb-6 text-accent bg-accent/10 p-6 rounded-xl font-bold border-2 border-accent/40 border-dashed z-10 shadow-sm flex flex-col gap-2">
+            <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold">
+              Answer
+            </span>
+            {selectedTile.questionData.answer}
+          </div>
+        </>
+      )}
 
       {qType !== "buzzer" && (
         <div className="mb-6 bg-background/50 p-4 rounded-xl border border-border/50 z-10 space-y-3" data-testid="host-submitted-answers">
