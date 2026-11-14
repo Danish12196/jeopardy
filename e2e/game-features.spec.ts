@@ -610,3 +610,52 @@ test("Spectator & accessibility: watch route, large text, colorblind palette, la
   await expect(watch.getByTestId("tv-live-region")).toContainText("Team 1 lidera con 100 puntos");
   await ctx.close();
 });
+
+test("Admin & ops: password reset, join QR on host and TV, PWA manifest and install prompt", async ({ page: host, browser }) => {
+  // Password reset UI (request is mocked so no mail server is needed).
+  const ctx = await browser.newContext();
+  const login = await ctx.newPage();
+  let resetBody: { email?: string } | null = null;
+  await login.route("**/request-password-reset", async (route) => {
+    resetBody = route.request().postDataJSON();
+    await route.fulfill({ status: 204, body: "" });
+  });
+  await login.goto("/login");
+  await login.getByRole("button", { name: "Forgot password?" }).click();
+  await expect(login.getByPlaceholder("Password")).toHaveCount(0);
+  await login.getByPlaceholder("Email").fill("someone@example.com");
+  await login.getByRole("button", { name: "Send reset link" }).click();
+  await expect(login.getByTestId("reset-sent")).toBeVisible();
+  expect(resetBody).toEqual({ email: "someone@example.com" });
+  await ctx.close();
+
+  // Join QR on host and TV.
+  const { game } = await setup(host);
+  await host.getByTestId("qr-join-button").click();
+  await expect(host.getByTestId("qr-join-svg")).toBeVisible();
+  await expect(host.getByTestId("qr-join-modal")).toContainText(`/game/${game.uniqueID}`);
+  await host.keyboard.press("Escape");
+  await expect(host.getByTestId("qr-join-modal")).toHaveCount(0);
+
+  const tv = await openTv(browser, game.uniqueID);
+  await tv.page.getByTestId("qr-join-button").click();
+  await expect(tv.page.getByTestId("qr-join-svg")).toBeVisible();
+
+  // PWA: manifest is served and linked; the phone offers an install button once the browser fires the prompt.
+  const manifest = await host.request.get("/manifest.webmanifest");
+  expect(manifest.ok()).toBe(true);
+  expect((await manifest.json()).short_name).toBe("Lockout");
+  expect((await host.request.get("/sw.js")).ok()).toBe(true);
+  await expect(host.locator('link[rel="manifest"]')).toHaveAttribute("href", "/manifest.webmanifest");
+
+  const phone = await openBuzzer(browser, game.uniqueID, "Team 1");
+  await expect(phone.page.getByTestId("pwa-install-button")).toHaveCount(0);
+  await phone.page.evaluate(() => {
+    const e = new Event("beforeinstallprompt", { cancelable: true });
+    (e as unknown as { prompt: () => Promise<void> }).prompt = async () => {};
+    window.dispatchEvent(e);
+  });
+  await expect(phone.page.getByTestId("pwa-install-button")).toBeVisible();
+  await phone.page.getByTestId("pwa-install-button").click();
+  await expect(phone.page.getByTestId("pwa-install-button")).toHaveCount(0);
+});

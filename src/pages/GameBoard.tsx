@@ -21,6 +21,7 @@ import { roundMultiplier, scaleQuestions } from "@/lib/gameModes";
 import { a11yStyleVars, buildAnnouncement, loadA11yPrefs, saveA11yPrefs, type A11yPrefs } from "@/lib/a11y";
 import { translate } from "@/lib/i18n";
 import A11yControls from "@/components/tv/A11yControls";
+import QrJoinButton from "@/components/QrJoinButton";
 
 export default function GameBoard({ watch = false }: { watch?: boolean } = {}) {
   const { uniqueID } = useParams();
@@ -241,6 +242,7 @@ export default function GameBoard({ watch = false }: { watch?: boolean } = {}) {
             {t("tv.spectator")} · {uniqueID}
           </span>
         )}
+        <QrJoinButton uniqueID={uniqueID} />
         <A11yControls prefs={a11y} onChange={changeA11y} />
         <button
           type="button"
