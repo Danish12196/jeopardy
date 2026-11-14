@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/select";
 import type { AllInCapMode, GameSettings, WildcardCapMode, WrongPenalty } from "@/lib/pbTypes";
 import { normalizeSettings } from "@/lib/scoring";
+import { DEFAULT_SPEED_BUZZ_SECONDS, GAME_MODES, normalizeGameMode } from "@/lib/gameModes";
+import type { GameMode } from "@/lib/pbTypes";
 
 type Props = {
   settings: GameSettings;
@@ -53,6 +55,34 @@ export default function GameRulesSettings({ settings, onChange }: Props) {
 
       {open && (
         <div className="px-5 pb-5 pt-2 border-t border-border/40 grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+          <div>
+            <label htmlFor="game-mode" className="block font-semibold mb-1.5">
+              Game Mode
+            </label>
+            <Select
+              value={normalizeGameMode(s.gameMode)}
+              onValueChange={(v) => {
+                const mode = v as GameMode;
+                update(
+                  mode === "speed" && !s.buzzTimerSeconds
+                    ? { gameMode: mode, buzzTimerSeconds: DEFAULT_SPEED_BUZZ_SECONDS }
+                    : { gameMode: mode }
+                );
+              }}
+            >
+              <SelectTrigger id="game-mode" aria-label="Game Mode" className="bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GAME_MODES.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <label htmlFor="wrong-penalty" className="block font-semibold mb-1.5">
               Wrong Answer Penalty

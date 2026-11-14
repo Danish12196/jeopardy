@@ -184,6 +184,7 @@ const COLLECTIONS = [
       { name: "value", type: "number" },
       relation("category", "question_categories", { single: true, required: true }),
       { name: "difficulty", type: "number" },
+      { name: "tags", type: "json", maxSize: 0 },
       { name: "isPublic", type: "bool" },
       relation("user", "users", { single: true, required: true }),
       {
@@ -254,6 +255,9 @@ const COLLECTIONS = [
       { name: "paused", type: "bool" },
       { name: "lockedTeams", type: "json", maxSize: 0 },
       { name: "cohostCode", type: "text" },
+      { name: "round", type: "number", onlyInt: true },
+      { name: "eliminatedTeams", type: "json", maxSize: 0 },
+      { name: "tiebreaker", type: "json", maxSize: 0 },
       { name: "settings", type: "json", maxSize: 0 },
       { name: "passedTeams", type: "json", maxSize: 0 },
       { name: "timerEndsAt", type: "text" },

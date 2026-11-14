@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
-import type { QuestionCategoryRecord } from "@/lib/pbTypes";
+import type { QuestionCategoryRecord, QuestionRecord } from "@/lib/pbTypes";
 import BulkQuestionRow, { type QuestionDraft } from "@/components/setup/BulkQuestionRow";
+import { filterQuestions, parseTags } from "@/lib/contentLibrary";
 
 const emptyRow = (): QuestionDraft => ({
   question: "",
@@ -13,6 +15,7 @@ const emptyRow = (): QuestionDraft => ({
   mediaFile: null,
   questionType: "buzzer",
   optionsText: "",
+  tagsText: "",
   value: 100,
   category: "",
   difficulty: "1",
@@ -21,10 +24,24 @@ const emptyRow = (): QuestionDraft => ({
 
 export default function AddBulkQuestionForm() {
   const [categories, setCategories] = useState<QuestionCategoryRecord[]>([]);
+  const [existingQuestions, setExistingQuestions] = useState<QuestionRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [diffFilter, setDiffFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("");
   const [questions, setQuestions] = useState<QuestionDraft[]>([emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const filteredLibrary = useMemo(
+    () =>
+      filterQuestions(existingQuestions, {
+        query: searchQuery,
+        difficulty: diffFilter,
+        tag: tagFilter,
+      }),
+    [existingQuestions, searchQuery, diffFilter, tagFilter]
+  );
 
   const updateQuestion = <K extends keyof QuestionDraft>(
     index: number,
@@ -68,6 +85,7 @@ export default function AddBulkQuestionForm() {
           form.append("mediaUrl", q.mediaUrl ?? "");
           form.append("questionType", q.questionType ?? "buzzer");
           form.append("options", JSON.stringify(parseOptions(q)));
+          form.append("tags", JSON.stringify(parseTags(q.tagsText ?? "")));
           form.append("value", String(q.value));
           form.append("category", q.category);
           form.append("difficulty", String(Number(q.difficulty)));
@@ -86,6 +104,7 @@ export default function AddBulkQuestionForm() {
             mediaUrl: q.mediaUrl ?? "",
             questionType: q.questionType ?? "buzzer",
             options: parseOptions(q),
+            tags: parseTags(q.tagsText ?? ""),
             value: q.value,
             category: q.category,
             difficulty: Number(q.difficulty),
@@ -98,6 +117,8 @@ export default function AddBulkQuestionForm() {
       setQuestions([emptyRow()]);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
+      const refreshed = await pb.collection("questions").getFullList<QuestionRecord>({ sort: "-created", requestKey: null });
+      setExistingQuestions(refreshed);
     } catch (err: unknown) {
       console.error("Batch error:", err);
       setError(err instanceof Error ? err.message : "Failed to save questions.");
@@ -109,9 +130,10 @@ export default function AddBulkQuestionForm() {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const records = await pb
-          .collection("question_categories")
-          .getFullList<QuestionCategoryRecord>({ expand: "user" });
+        const [records, qs] = await Promise.all([
+          pb.collection("question_categories").getFullList<QuestionCategoryRecord>({ expand: "user", requestKey: null }),
+          pb.collection("questions").getFullList<QuestionRecord>({ sort: "-created", requestKey: null }),
+        ]);
 
         const currentUserId = pb.authStore.record?.id;
         const sorted = records.sort((a, b) => {
@@ -123,6 +145,7 @@ export default function AddBulkQuestionForm() {
         });
 
         setCategories(sorted);
+        setExistingQuestions(qs);
       } catch (err) {
         console.error("Failed to load categories:", err);
       }
@@ -202,6 +225,59 @@ export default function AddBulkQuestionForm() {
           </motion.p>
         )}
       </AnimatePresence>
+
+      <div className="pt-4 border-t border-border/40 space-y-3" data-testid="question-library">
+        <h3 className="text-lg font-bold text-foreground">
+          Question Library ({filteredLibrary.length})
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search questions or answers..."
+            aria-label="Search Question Library"
+            className="flex-1 min-w-[200px] bg-background"
+          />
+          <select
+            value={diffFilter}
+            onChange={(e) => setDiffFilter(e.target.value)}
+            aria-label="Filter by Difficulty"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="all">All difficulties</option>
+            {["1", "2", "3", "4", "5"].map((d) => (
+              <option key={d} value={d}>Difficulty {d}</option>
+            ))}
+          </select>
+          <Input
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            placeholder="Filter by tag..."
+            aria-label="Filter by Tag"
+            className="w-40 bg-background"
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto space-y-2 custom-scrollbar">
+          {filteredLibrary.slice(0, 50).map((q) => (
+            <div key={q.id} className="bg-background/50 p-3 rounded-lg border border-border/30 flex items-center justify-between gap-4 text-sm">
+              <div className="min-w-0">
+                <div className="font-semibold truncate">{q.question}</div>
+                <div className="text-xs text-muted-foreground truncate">Answer: {q.answer}</div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {(q.tags ?? []).map((t) => (
+                  <span key={t} className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                    {t}
+                  </span>
+                ))}
+                {q.difficulty && (
+                  <span className="text-xs bg-secondary px-2 py-0.5 rounded">D{q.difficulty}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </motion.div>
   );
 }

@@ -18,6 +18,7 @@ export type QuestionDraft = {
   mediaFile?: File | null;
   questionType?: QuestionType;
   optionsText?: string;
+  tagsText?: string;
   value: number;
   category: string;
   difficulty: string;
@@ -79,6 +80,13 @@ export default function BulkQuestionRow({
             aria-label="Multiple Choice Options"
           />
         )}
+        <Input
+          value={row.tagsText ?? ""}
+          onChange={(e) => onUpdate("tagsText", e.target.value)}
+          className="bg-background text-foreground text-xs h-8"
+          placeholder="Tags (comma-separated)"
+          aria-label="Question Tags"
+        />
       </td>
       <td className="p-2">
         <Input

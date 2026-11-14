@@ -10,6 +10,7 @@ import { findQuestionPosition, loadGameState } from "@/lib/loadGameState";
 import { computeRemainingSeconds, makeTimerEndsAt } from "@/lib/timer";
 import { closestEstimationWinners, isTypedMatch, normalizeAnswer } from "@/lib/answerMatch";
 import { buildStandings } from "@/lib/historyStats";
+import { lowestScoringTeam, roundMultiplier, scaleQuestions } from "@/lib/gameModes";
 import type { AllInState, BoardQuestion, GameRecord, GameTeam, TeamRecord, TeamRegistrationRecord } from "@/lib/pbTypes";
 import {
   allInMaxWager,
@@ -80,7 +81,7 @@ export function useHostGame(uniqueID: string | undefined) {
         setUsedQuestions(g.answeredQuestions || []);
 
         if (g.currentActiveQuestion) {
-          const pos = findQuestionPosition(grouped, g.currentActiveQuestion);
+          const pos = findQuestionPosition(scaleQuestions(grouped, roundMultiplier(g.settings, g.round)), g.currentActiveQuestion);
           if (pos) setSelectedTile(pos);
         }
       } catch (err) {
@@ -531,6 +532,40 @@ export function useHostGame(uniqueID: string | undefined) {
     await updateGame({ teams: nextTeams, teamScores: nextScores, lockedTeams: nextLocked });
   };
 
+  const startNextRound = async () => {
+    if (!game) return;
+    setUsedQuestions([]);
+    setSelectedTile(null);
+    await updateGame({
+      round: (game.round ?? 1) + 1,
+      answeredQuestions: [],
+      currentActiveQuestion: null,
+      showAnswer: false,
+      buzzerUnlocked: false,
+      "buzzRound+": 1,
+      passedTeams: [],
+      wildcard: null,
+    });
+  };
+
+  const eliminateLowestTeam = async () => {
+    if (!game) return;
+    const id = lowestScoringTeam(game.teams ?? [], scores, game.eliminatedTeams);
+    if (!id) return;
+    await updateGame({
+      eliminatedTeams: [...(game.eliminatedTeams ?? []), id],
+      lockedTeams: [...new Set([...(game.lockedTeams ?? []), id])],
+    });
+  };
+
+  const startTiebreaker = (question: string, answer: string) =>
+    updateGame({ tiebreaker: { question, answer, showAnswer: false } });
+
+  const revealTiebreaker = () =>
+    game?.tiebreaker ? updateGame({ tiebreaker: { ...game.tiebreaker, showAnswer: true } }) : Promise.resolve();
+
+  const endTiebreaker = () => updateGame({ tiebreaker: null });
+
   const ensureCohostCode = async (): Promise<string | null> => {
     if (!game) return null;
     if (game.cohostCode) return game.cohostCode;
@@ -544,7 +579,7 @@ export function useHostGame(uniqueID: string | undefined) {
     settings,
     notFound,
     categories,
-    questions,
+    questions: scaleQuestions(questions, roundMultiplier(game?.settings, game?.round)),
     teams,
     usedQuestions,
     selectedTile,
@@ -599,5 +634,10 @@ export function useHostGame(uniqueID: string | undefined) {
     toggleLockTeam,
     kickTeam,
     ensureCohostCode,
+    startNextRound,
+    eliminateLowestTeam,
+    startTiebreaker,
+    revealTiebreaker,
+    endTiebreaker,
   };
 }

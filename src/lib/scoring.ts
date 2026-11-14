@@ -6,6 +6,7 @@ import { DEFAULT_SOUND_SETTINGS, normalizeSoundSettings } from "./sound";
 export type TeamScore = { id: string; score: number };
 
 export const DEFAULT_GAME_SETTINGS: Required<GameSettings> = {
+  gameMode: "classic",
   wrongPenalty: "full",
   stealEnabled: false,
   pointMultiplier: 1,
@@ -27,7 +28,9 @@ export function normalizeSettings(settings?: GameSettings | null): Required<Game
   const fixedCap = Number(settings?.wildcardFixedCap);
   const buzzTimer = Number(settings?.buzzTimerSeconds);
   const answerTimer = Number(settings?.answerTimerSeconds);
+  const gameMode = (["classic", "rounds", "elimination", "speed", "solo"] as const).find((m) => m === settings?.gameMode) ?? "classic";
   return {
+    gameMode,
     wrongPenalty: settings?.wrongPenalty ?? DEFAULT_GAME_SETTINGS.wrongPenalty,
     stealEnabled: settings?.stealEnabled ?? DEFAULT_GAME_SETTINGS.stealEnabled,
     pointMultiplier: Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1,

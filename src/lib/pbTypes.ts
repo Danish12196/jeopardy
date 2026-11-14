@@ -48,6 +48,7 @@ export interface QuestionRecord extends RecordModel {
   value?: number;
   category: string;
   difficulty?: number;
+  tags?: string[];
   isPublic?: boolean;
   user?: string;
   media?: string;
@@ -97,7 +98,16 @@ export interface SoundSettings {
   customUrls?: Partial<Record<SoundEvent, string>>;
 }
 
+export type GameMode = "classic" | "rounds" | "elimination" | "speed" | "solo";
+
+export interface TiebreakerState {
+  question: string;
+  answer: string;
+  showAnswer?: boolean;
+}
+
 export interface GameSettings {
+  gameMode?: GameMode;
   wrongPenalty?: WrongPenalty;
   stealEnabled?: boolean;
   pointMultiplier?: number;
@@ -145,6 +155,9 @@ export interface GameRecord extends RecordModel {
   paused?: boolean;
   lockedTeams?: string[];
   cohostCode?: string;
+  round?: number;
+  eliminatedTeams?: string[];
+  tiebreaker?: TiebreakerState | null;
   expand?: {
     template?: GameTemplateRecord;
     teams?: TeamRecord[];
