@@ -483,7 +483,7 @@ test("Host tools: pause/resume, lock team, reopen tile, edit Q/A, and keyboard s
   await host.getByRole("button", { name: "Edit Q/A" }).click();
   await host.getByLabel("Edit Question").fill("Edited question text?");
   await host.getByRole("button", { name: "Save Q/A" }).click();
-  await expect(tv.page.getByText("Edited question text?")).toBeVisible();
+  await expect(tv.page.getByRole("heading", { name: "Edited question text?" })).toBeVisible();
 
   await host.getByRole("button", { name: "Done (Back to Board)" }).click();
   const reopenBtn = host.getByRole("button", { name: "Reopen 100" }).first();
@@ -575,4 +575,87 @@ test("Game modes: solo route shows the solo banner", async ({ page: host }) => {
   await api.collection("games").update(game.id, { settings: { gameMode: "solo" } });
   await host.goto(`/game/${game.uniqueID}/solo`);
   await expect(host.getByTestId("solo-banner")).toBeVisible();
+});
+
+test("Spectator & accessibility: watch route, large text, colorblind palette, language, live region", async ({ page: host, browser }) => {
+  const { game } = await setup(host);
+  await expect(host.getByRole("link", { name: "Spectator Link" })).toHaveAttribute("href", `/game/${game.uniqueID}/watch`);
+
+  const ctx = await browser.newContext();
+  const watch = await ctx.newPage();
+  await watch.goto(`/game/${game.uniqueID}/watch`);
+  await expect(watch.getByTestId("watch-badge")).toContainText(game.uniqueID);
+  await expect(watch.getByTestId("tv-score-Team 1")).toBeVisible();
+
+  // Large text scales the root font size and persists across reloads.
+  await watch.getByTestId("tv-large-text-toggle").click();
+  await expect(watch.getByTestId("tv-large-text-toggle")).toHaveAttribute("aria-pressed", "true");
+  expect(await watch.evaluate(() => document.documentElement.style.fontSize)).toBe("125%");
+  await watch.reload();
+  await expect(watch.getByTestId("tv-large-text-toggle")).toHaveAttribute("aria-pressed", "true");
+
+  // Colorblind palette swaps the accent color on the TV root.
+  await watch.getByTestId("tv-colorblind-toggle").click();
+  await expect(watch.getByTestId("tv-colorblind-toggle")).toHaveAttribute("aria-pressed", "true");
+  const accent = await watch.locator("[data-theme]").first().evaluate((el) => (el as HTMLElement).style.getPropertyValue("--accent"));
+  expect(accent).toBe("#56B4E9");
+
+  // Language switcher translates TV chrome.
+  await watch.getByTestId("tv-language-select").selectOption("es");
+  await expect(watch.getByTestId("watch-badge")).toContainText("Vista de espectador");
+  await expect(watch.getByTestId("tv-sound-toggle")).toContainText("Sonido de TV");
+
+  // Live region announces a score change for screen readers.
+  await host.getByRole("button", { name: "Correct: add points to Team 1" }).click();
+  await expect(watch.getByTestId("tv-live-region")).toContainText("Team 1 lidera con 100 puntos");
+  await ctx.close();
+});
+
+test("Admin & ops: password reset, join QR on host and TV, PWA manifest and install prompt", async ({ page: host, browser }) => {
+  // Password reset UI (request is mocked so no mail server is needed).
+  const ctx = await browser.newContext();
+  const login = await ctx.newPage();
+  let resetBody: { email?: string } | null = null;
+  await login.route("**/request-password-reset", async (route) => {
+    resetBody = route.request().postDataJSON();
+    await route.fulfill({ status: 204, body: "" });
+  });
+  await login.goto("/login");
+  await login.getByRole("button", { name: "Forgot password?" }).click();
+  await expect(login.getByPlaceholder("Password")).toHaveCount(0);
+  await login.getByPlaceholder("Email").fill("someone@example.com");
+  await login.getByRole("button", { name: "Send reset link" }).click();
+  await expect(login.getByTestId("reset-sent")).toBeVisible();
+  expect(resetBody).toEqual({ email: "someone@example.com" });
+  await ctx.close();
+
+  // Join QR on host and TV.
+  const { game } = await setup(host);
+  await host.getByTestId("qr-join-button").click();
+  await expect(host.getByTestId("qr-join-svg")).toBeVisible();
+  await expect(host.getByTestId("qr-join-modal")).toContainText(`/game/${game.uniqueID}`);
+  await host.keyboard.press("Escape");
+  await expect(host.getByTestId("qr-join-modal")).toHaveCount(0);
+
+  const tv = await openTv(browser, game.uniqueID);
+  await tv.page.getByTestId("qr-join-button").click();
+  await expect(tv.page.getByTestId("qr-join-svg")).toBeVisible();
+
+  // PWA: manifest is served and linked; the phone offers an install button once the browser fires the prompt.
+  const manifest = await host.request.get("/manifest.webmanifest");
+  expect(manifest.ok()).toBe(true);
+  expect((await manifest.json()).short_name).toBe("Lockout");
+  expect((await host.request.get("/sw.js")).ok()).toBe(true);
+  await expect(host.locator('link[rel="manifest"]')).toHaveAttribute("href", "/manifest.webmanifest");
+
+  const phone = await openBuzzer(browser, game.uniqueID, "Team 1");
+  await expect(phone.page.getByTestId("pwa-install-button")).toHaveCount(0);
+  await phone.page.evaluate(() => {
+    const e = new Event("beforeinstallprompt", { cancelable: true });
+    (e as unknown as { prompt: () => Promise<void> }).prompt = async () => {};
+    window.dispatchEvent(e);
+  });
+  await expect(phone.page.getByTestId("pwa-install-button")).toBeVisible();
+  await phone.page.getByTestId("pwa-install-button").click();
+  await expect(phone.page.getByTestId("pwa-install-button")).toHaveCount(0);
 });

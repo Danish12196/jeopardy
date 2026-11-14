@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import QrJoinButton from "@/components/QrJoinButton";
 
 type Props = {
   uniqueID: string | undefined;
@@ -75,6 +76,12 @@ export default function HostHeader({
         <Button asChild variant="secondary" size="sm">
           <Link to={`/game/${uniqueID}/board`} target="_blank" rel="noopener noreferrer">
             Open TV Board
+          </Link>
+        </Button>
+        <QrJoinButton uniqueID={uniqueID} />
+        <Button asChild variant="secondary" size="sm">
+          <Link to={`/game/${uniqueID}/watch`} target="_blank" rel="noopener noreferrer">
+            Spectator Link
           </Link>
         </Button>
         <Button variant="secondary" size="sm" onClick={copyJoinLink}>

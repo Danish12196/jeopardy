@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import pb from "@/pb";
@@ -6,6 +6,8 @@ import { useGameSubscription } from "@/hooks/useGameSubscription";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { useAnswers } from "@/hooks/useAnswers";
 import { buzzPosition } from "@/lib/buzzes";
+import { createBuzzGuard } from "@/lib/buzzGuard";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import PhoneAllIn from "@/components/phone/PhoneAllIn";
 import { useLiveConnection } from "@/hooks/useLiveConnection";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
@@ -37,6 +39,9 @@ function loadSavedTeam(id?: string): string | null {
 }
 
 export default function BuzzerPage() {
+  const { canInstall, install } = useInstallPrompt();
+  const buzzGuardRef = useRef(createBuzzGuard());
+  const [buzzThrottled, setBuzzThrottled] = useState(false);
   const { uniqueID } = useParams();
 
   const [game, setGame] = useState<GameRecord | null>(null);
@@ -164,6 +169,11 @@ export default function BuzzerPage() {
 
   const handleBuzz = async () => {
     if (!game || !selectedTeamId || !game.buzzerUnlocked || pending || myPosition) return;
+    if (!buzzGuardRef.current.attempt()) {
+      setBuzzThrottled(true);
+      setTimeout(() => setBuzzThrottled(false), buzzGuardRef.current.retryInMs() + 50);
+      return;
+    }
 
     // Instant feedback; the server decides the order.
     setPendingRound(round);
@@ -336,6 +346,21 @@ export default function BuzzerPage() {
   return (
     <div style={brandingStyleVars(game.settings?.branding)} className="min-h-screen bg-background bg-animated-gradient flex flex-col p-4 md:p-8 text-foreground">
       <ReconnectingBadge show={!connected} />
+      {canInstall && (
+        <button
+          type="button"
+          onClick={() => void install()}
+          className="mb-4 self-end text-xs px-3 py-1 rounded-full bg-secondary text-secondary-foreground border border-border/50"
+          data-testid="pwa-install-button"
+        >
+          Install app
+        </button>
+      )}
+      {buzzThrottled && (
+        <div className="mb-4 rounded-xl bg-accent/20 border border-accent px-4 py-3 text-center font-bold text-accent" role="status" data-testid="phone-buzz-cooldown">
+          Slow down, too many taps.
+        </div>
+      )}
       {isPaused && (
         <div className="mb-4 rounded-xl bg-accent/20 border border-accent px-4 py-3 text-center font-bold text-accent" data-testid="game-paused-overlay">
           Game Paused by Host

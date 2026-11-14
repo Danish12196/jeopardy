@@ -1,0 +1,14 @@
+{
+  "name": "Lockout",
+  "short_name": "Lockout",
+  "description": "A buzzer quiz game for one TV and everyone's phone.",
+  "start_url": "/game",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1C1C1E",
+  "theme_color": "#1C1C1E",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

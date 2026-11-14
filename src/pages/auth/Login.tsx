@@ -9,7 +9,20 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [resetMode, setResetMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    try {
+      await pb.collection("users").requestPasswordReset(email);
+      setResetSent(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to send reset email");
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +46,7 @@ export default function Login() {
 
         <h1 className="text-5xl font-black text-accent text-center drop-shadow-md tracking-wider uppercase relative z-10">Lockout</h1>
         <p className="mt-2 mb-8 text-center text-muted-foreground font-semibold tracking-wide relative z-10">Buzz first or sit it out.</p>
-        <form onSubmit={handleLogin} className="flex flex-col gap-6 relative z-10">
+        <form onSubmit={resetMode ? handleReset : handleLogin} className="flex flex-col gap-6 relative z-10">
           <div className="space-y-4">
               <Input
                 type="email"
@@ -43,14 +56,16 @@ export default function Login() {
                 className="h-12 bg-background/80 border-border/50 focus:border-accent text-foreground"
                 required
               />
-              <Input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12 bg-background/80 border-border/50 focus:border-accent text-foreground"
-                required
-              />
+              {!resetMode && (
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 bg-background/80 border-border/50 focus:border-accent text-foreground"
+                  required
+                />
+              )}
           </div>
 
           <AnimatePresence>
@@ -66,9 +81,26 @@ export default function Login() {
             )}
           </AnimatePresence>
 
+          {resetSent && (
+            <p className="text-sm font-semibold text-center text-accent" role="status" data-testid="reset-sent">
+              If that email has an account, a reset link is on its way.
+            </p>
+          )}
+
           <Button type="submit" variant="brand" className="w-full h-14 text-lg">
-            Login
+            {resetMode ? "Send reset link" : "Login"}
           </Button>
+          <button
+            type="button"
+            className="text-sm text-muted-foreground hover:text-accent underline"
+            onClick={() => {
+              setResetMode((m) => !m);
+              setResetSent(false);
+              setError("");
+            }}
+          >
+            {resetMode ? "Back to login" : "Forgot password?"}
+          </button>
         </form>
 
         <div className="mt-6 flex items-center gap-4 relative z-10">
