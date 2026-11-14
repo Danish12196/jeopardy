@@ -71,6 +71,25 @@ export interface GameTemplateRecord extends RecordModel {
 export type WrongPenalty = "full" | "half" | "none";
 export type WildcardCapMode = "standard" | "unlimited" | "fixed";
 export type AllInCapMode = "score" | "score_or_top";
+export type TvThemeMode = "dark" | "light";
+export type BackgroundStyle = "gradient" | "solid" | "midnight";
+
+export interface BrandingSettings {
+  gameTitle?: string;
+  accentColor?: string;
+  logoUrl?: string;
+  tvTheme?: TvThemeMode;
+  backgroundStyle?: BackgroundStyle;
+}
+
+export type SoundEvent = "buzz" | "correct" | "wrong" | "timerEnd" | "allInReveal" | "wildcard";
+
+export interface SoundSettings {
+  muted?: boolean;
+  volume?: number;
+  enabledEvents?: Partial<Record<SoundEvent, boolean>>;
+  customUrls?: Partial<Record<SoundEvent, string>>;
+}
 
 export interface GameSettings {
   wrongPenalty?: WrongPenalty;
@@ -84,6 +103,8 @@ export interface GameSettings {
   allInCapMode?: AllInCapMode;
   buzzTimerSeconds?: number;
   answerTimerSeconds?: number;
+  branding?: BrandingSettings;
+  sound?: SoundSettings;
 }
 
 export interface GameRecord extends RecordModel {

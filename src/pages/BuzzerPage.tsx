@@ -9,6 +9,7 @@ import PhoneAllIn from "@/components/phone/PhoneAllIn";
 import { useLiveConnection } from "@/hooks/useLiveConnection";
 import ReconnectingBadge from "@/components/ReconnectingBadge";
 import TimerDisplay from "@/components/TimerDisplay";
+import { brandingStyleVars } from "@/lib/branding";
 import type { GameRecord, TeamRecord } from "@/lib/pbTypes";
 
 
@@ -177,7 +178,7 @@ export default function BuzzerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background bg-animated-gradient flex flex-col p-4 md:p-8 text-foreground">
+    <div style={brandingStyleVars(game.settings?.branding)} className="min-h-screen bg-background bg-animated-gradient flex flex-col p-4 md:p-8 text-foreground">
       <ReconnectingBadge show={!connected} />
       <div className="flex justify-between items-center mb-8 bg-card/40 backdrop-blur-md p-4 rounded-2xl border border-border/50 shadow-md">
         <div className="text-lg md:text-xl font-bold">Team: <span className="text-accent drop-shadow-sm">{selectedTeamName}</span></div>
