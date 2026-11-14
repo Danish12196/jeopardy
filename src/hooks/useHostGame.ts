@@ -3,10 +3,13 @@ import pb from "@/pb";
 import { useGameSubscription } from "@/hooks/useGameSubscription";
 import { useBuzzes } from "@/hooks/useBuzzes";
 import { useWagers } from "@/hooks/useWagers";
+import { useAnswers } from "@/hooks/useAnswers";
+import { useTeamRegistrations } from "@/hooks/useTeamRegistrations";
 import { useLiveConnection } from "@/hooks/useLiveConnection";
 import { findQuestionPosition, loadGameState } from "@/lib/loadGameState";
 import { computeRemainingSeconds, makeTimerEndsAt } from "@/lib/timer";
-import type { AllInState, BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
+import { closestEstimationWinners, isTypedMatch, normalizeAnswer } from "@/lib/answerMatch";
+import type { AllInState, BoardQuestion, GameRecord, GameTeam, TeamRecord, TeamRegistrationRecord } from "@/lib/pbTypes";
 import {
   allInMaxWager,
   applyDelta,
@@ -16,6 +19,7 @@ import {
   restoreSnapshot,
   revealOrder,
   scoreOf,
+  wrongDelta,
   type ScoreSnapshot,
   type TeamScore,
 } from "@/lib/scoring";
@@ -52,6 +56,9 @@ export function useHostGame(uniqueID: string | undefined) {
   const allInPhase: string = game?.allInPhase || "";
   const allIn: AllInState = game?.allIn || {};
   const wagers = useWagers(game?.id, !!allInPhase, `${allInPhase}-${reloadKey}`);
+  const answers = useAnswers(game?.id, selectedTile?.questionData.id, game?.buzzRound ?? 0, reloadKey);
+  const registrations = useTeamRegistrations(game?.id, reloadKey);
+  const pendingRegistrations = registrations.filter((r) => r.status === "pending");
   const scores: TeamScore[] = game?.teamScores || [];
   const wildcards: string[] = game?.wildcards || [];
 
@@ -386,6 +393,73 @@ export function useHostGame(uniqueID: string | undefined) {
       timerPausedRemaining: null,
     });
 
+  const autoScoreAnswers = async () => {
+    if (!selectedTile || answers.length === 0) return;
+    const q = selectedTile.questionData;
+    const qType = q.questionType || "buzzer";
+    const expected = q.answer;
+    const pts = selectedTile.value;
+
+    let nextScores = [...scores];
+    if (qType === "estimation") {
+      const winners = closestEstimationWinners(
+        answers.map((a) => ({ team: a.team, value: a.value })),
+        expected
+      );
+      for (const teamId of winners) {
+        nextScores = applyDelta(nextScores, teamId, pts);
+      }
+    } else {
+      const penalty = wrongDelta(pts, settings.wrongPenalty);
+      for (const a of answers) {
+        const ok =
+          qType === "typed"
+            ? isTypedMatch(a.value, expected)
+            : normalizeAnswer(a.value) === normalizeAnswer(expected);
+        if (ok) {
+          nextScores = applyDelta(nextScores, a.team, pts);
+        } else if (penalty !== 0) {
+          nextScores = applyDelta(nextScores, a.team, penalty);
+        }
+      }
+    }
+
+    await changeScores(nextScores, { showAnswer: true });
+  };
+
+  const approveRegistration = async (reg: TeamRegistrationRecord) => {
+    if (!game?.id) return;
+    const createdTeam = await pb.collection("teams").create<TeamRecord>({
+      name: reg.name,
+      color: reg.color ?? "",
+      emoji: reg.emoji ?? "",
+      members: reg.members ?? [],
+      user: pb.authStore.record?.id,
+      isPublic: true,
+    });
+    const nextTeamIds = [...(game.teams ?? []), createdTeam.id];
+    const nextScores = [...scores, { id: createdTeam.id, score: 0 }];
+    setTeams((prev) => [
+      ...prev,
+      {
+        id: createdTeam.id,
+        name: createdTeam.name,
+        score: 0,
+        ...(createdTeam.color ? { color: createdTeam.color } : {}),
+        ...(createdTeam.emoji ? { emoji: createdTeam.emoji } : {}),
+        ...(Array.isArray(createdTeam.members) && createdTeam.members.length > 0
+          ? { members: createdTeam.members }
+          : {}),
+      },
+    ]);
+    await updateGame({ teams: nextTeamIds, teamScores: nextScores });
+    await pb.collection("team_registrations").update(reg.id, { status: "approved" });
+  };
+
+  const rejectRegistration = async (reg: TeamRegistrationRecord) => {
+    await pb.collection("team_registrations").update(reg.id, { status: "rejected" });
+  };
+
   return {
     game,
     settings,
@@ -399,6 +473,8 @@ export function useHostGame(uniqueID: string | undefined) {
     setAutoUnlock,
     connected,
     buzzQueue,
+    answers,
+    pendingRegistrations,
     allInPhase,
     allIn,
     wagers,
@@ -435,5 +511,8 @@ export function useHostGame(uniqueID: string | undefined) {
     pauseTimer,
     resumeTimer,
     clearTimer,
+    autoScoreAnswers,
+    approveRegistration,
+    rejectRegistration,
   };
 }

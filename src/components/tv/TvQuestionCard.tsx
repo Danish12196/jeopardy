@@ -109,6 +109,21 @@ export default function TvQuestionCard({
             <h1 className="text-4xl md:text-6xl font-bold leading-tight md:leading-tight text-foreground drop-shadow-xl">
               {activeQuestion.question}
             </h1>
+            {activeQuestion.questionType === "multiple_choice" && activeQuestion.options && activeQuestion.options.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 w-full max-w-3xl" data-testid="tv-mc-options">
+                {activeQuestion.options.map((opt, idx) => (
+                  <div
+                    key={`${idx}-${opt}`}
+                    className="bg-background/60 border-2 border-border/60 rounded-xl px-5 py-3 text-xl md:text-2xl font-bold text-foreground text-left flex items-center gap-3"
+                  >
+                    <span className="bg-accent text-accent-foreground rounded-lg px-2.5 py-0.5 text-lg font-black">
+                      {String.fromCharCode(65 + idx)}
+                    </span>
+                    <span>{opt}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <QuestionMedia mediaUrl={activeQuestion.mediaUrl} mediaType={activeQuestion.mediaType} />
           </motion.div>
         ) : (

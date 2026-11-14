@@ -17,6 +17,9 @@ export default function GameSetup() {
   const [availableTeams, setAvailableTeams] = useState<TeamRecord[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamEmoji, setNewTeamEmoji] = useState("🚀");
+  const [newTeamColor, setNewTeamColor] = useState("#FF5A1F");
+  const [newTeamMembers, setNewTeamMembers] = useState("");
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -38,15 +41,23 @@ export default function GameSetup() {
 
   const createTeam = async () => {
     if (!newTeamName.trim()) return;
+    const members = newTeamMembers
+      .split(",")
+      .map((m) => m.trim())
+      .filter(Boolean);
     try {
       const record = await pb.collection("teams").create<TeamRecord>({
         name: newTeamName.trim(),
+        emoji: newTeamEmoji.trim(),
+        color: newTeamColor,
+        members,
         user: pb.authStore.record?.id,
         isPublic: false
       });
       setAvailableTeams([record, ...availableTeams]);
       setSelectedTeams([...selectedTeams, record.id]);
       setNewTeamName("");
+      setNewTeamMembers("");
     } catch (err) {
       console.error("Failed to create team:", err);
     }
@@ -91,13 +102,34 @@ export default function GameSetup() {
             Select Teams
         </h2>
 
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col md:flex-row flex-wrap gap-3 mb-6 items-center">
+            <Input
+              value={newTeamEmoji}
+              onChange={e => setNewTeamEmoji(e.target.value)}
+              aria-label="Team Emoji"
+              placeholder="🚀"
+              className="w-16 text-center"
+            />
+            <input
+              type="color"
+              value={newTeamColor}
+              onChange={e => setNewTeamColor(e.target.value)}
+              aria-label="Team Color"
+              className="h-10 w-12 rounded border border-border bg-background cursor-pointer"
+            />
             <Input
               value={newTeamName}
               onChange={e => setNewTeamName(e.target.value)}
               placeholder="New Team Name"
-              className="md:max-w-sm"
+              className="md:max-w-xs"
               onKeyDown={(e) => e.key === 'Enter' && createTeam()}
+            />
+            <Input
+              value={newTeamMembers}
+              onChange={e => setNewTeamMembers(e.target.value)}
+              placeholder="Members (comma-separated, optional)"
+              aria-label="Team Members"
+              className="md:max-w-xs"
             />
             <Button onClick={createTeam} variant="brand">Add Team</Button>
         </div>
@@ -114,13 +146,14 @@ export default function GameSetup() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => toggleTeam(t.id)}
+                    style={t.color ? { borderColor: t.color } : undefined}
                     className={`px-6 py-3 rounded-xl border-2 font-bold transition-all ${
                         selectedTeams.includes(t.id)
                         ? "bg-accent border-accent text-accent-foreground shadow-[0_0_15px_rgba(255,90,31,0.4)]"
                         : "bg-secondary border-border/50 text-secondary-foreground hover:border-primary/50"
                     }`}
                 >
-                    {t.name}
+                    {t.emoji ? `${t.emoji} ` : ""}{t.name}
                 </motion.button>
             ))}
             </AnimatePresence>

@@ -382,6 +382,22 @@ export default function GameRulesSettings({ settings, onChange }: Props) {
                 ))}
               </div>
             </div>
+
+            <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-4">
+              <div>
+                <label htmlFor="allow-self-reg" className="font-semibold cursor-pointer block">
+                  Allow Phone Team Registration
+                </label>
+                <span className="text-xs text-muted-foreground">
+                  Players can request a new team from their phone (host approves).
+                </span>
+              </div>
+              <Switch
+                id="allow-self-reg"
+                checked={Boolean(s.allowSelfRegistration)}
+                onCheckedChange={(checked) => update({ allowSelfRegistration: checked })}
+              />
+            </div>
           </div>
         </div>
       )}

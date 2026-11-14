@@ -100,7 +100,18 @@ export default function GameBoard() {
     setShowAnswer(g.showAnswer || false);
     setHostForceShowQuestion(g.hostForceShowQuestion || false);
     setBuzzRound(g.buzzRound ?? 0);
-    setTeams((prev) => prev.map((t) => ({ ...t, score: scoreOf(g.teamScores, t.id) })));
+    setTeams((prev) => {
+      const prevIds = new Set(prev.map((t) => t.id));
+      const nextIds = g.teams ?? [];
+      if (nextIds.some((id) => !prevIds.has(id))) {
+        loadGameState(pb, uniqueID)
+          .then((res) => {
+            if (!res.notFound) setTeams(res.teams);
+          })
+          .catch(() => {});
+      }
+      return prev.map((t) => ({ ...t, score: scoreOf(g.teamScores, t.id) }));
+    });
   });
 
   useEffect(() => {

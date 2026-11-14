@@ -19,6 +19,7 @@ export const DEFAULT_GAME_SETTINGS: Required<GameSettings> = {
   answerTimerSeconds: 0,
   branding: DEFAULT_BRANDING,
   sound: DEFAULT_SOUND_SETTINGS,
+  allowSelfRegistration: false,
 };
 
 export function normalizeSettings(settings?: GameSettings | null): Required<GameSettings> {
@@ -42,6 +43,7 @@ export function normalizeSettings(settings?: GameSettings | null): Required<Game
     answerTimerSeconds: Number.isFinite(answerTimer) && answerTimer >= 0 ? Math.round(answerTimer) : 0,
     branding: normalizeBranding(settings?.branding),
     sound: normalizeSoundSettings(settings?.sound),
+    allowSelfRegistration: Boolean(settings?.allowSelfRegistration),
   };
 }
 

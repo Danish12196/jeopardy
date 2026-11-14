@@ -11,6 +11,8 @@ const emptyRow = (): QuestionDraft => ({
   hint: "",
   mediaUrl: "",
   mediaFile: null,
+  questionType: "buzzer",
+  optionsText: "",
   value: 100,
   category: "",
   difficulty: "1",
@@ -51,6 +53,10 @@ export default function AddBulkQuestionForm() {
     setSuccess(false);
 
     const hasFiles = validQuestions.some((q) => q.mediaFile);
+    const parseOptions = (q: QuestionDraft) =>
+      q.questionType === "multiple_choice" && q.optionsText
+        ? q.optionsText.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
 
     try {
       if (hasFiles) {
@@ -60,6 +66,8 @@ export default function AddBulkQuestionForm() {
           form.append("answer", q.answer);
           form.append("hint", q.hint);
           form.append("mediaUrl", q.mediaUrl ?? "");
+          form.append("questionType", q.questionType ?? "buzzer");
+          form.append("options", JSON.stringify(parseOptions(q)));
           form.append("value", String(q.value));
           form.append("category", q.category);
           form.append("difficulty", String(Number(q.difficulty)));
@@ -76,6 +84,8 @@ export default function AddBulkQuestionForm() {
             answer: q.answer,
             hint: q.hint,
             mediaUrl: q.mediaUrl ?? "",
+            questionType: q.questionType ?? "buzzer",
+            options: parseOptions(q),
             value: q.value,
             category: q.category,
             difficulty: Number(q.difficulty),
