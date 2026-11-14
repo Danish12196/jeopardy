@@ -63,6 +63,22 @@ export interface GameTemplateRecord extends RecordModel {
   };
 }
 
+export type WrongPenalty = "full" | "half" | "none";
+export type WildcardCapMode = "standard" | "unlimited" | "fixed";
+export type AllInCapMode = "score" | "score_or_top";
+
+export interface GameSettings {
+  wrongPenalty?: WrongPenalty;
+  stealEnabled?: boolean;
+  pointMultiplier?: number;
+  customValues?: number[];
+  wildcardEnabled?: boolean;
+  wildcardCapMode?: WildcardCapMode;
+  wildcardFixedCap?: number;
+  allInEnabled?: boolean;
+  allInCapMode?: AllInCapMode;
+}
+
 export interface GameRecord extends RecordModel {
   title?: string;
   uniqueID: string;
@@ -86,6 +102,8 @@ export interface GameRecord extends RecordModel {
   allInPhase?: string;
   allIn?: AllInState | null;
   gameOver?: boolean;
+  settings?: GameSettings;
+  passedTeams?: string[];
   expand?: {
     template?: GameTemplateRecord;
     teams?: TeamRecord[];

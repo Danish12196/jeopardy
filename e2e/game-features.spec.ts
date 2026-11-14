@@ -123,3 +123,49 @@ test("All In: hidden wagers, right/wrong, one-by-one reveal, game over", async (
 
   await Promise.all([tv.ctx.close(), p1.ctx.close(), p2.ctx.close()]);
 });
+
+test("Game rules settings: 2x multiplier, half wrong penalty, and steal/pass", async ({ page: host, browser }) => {
+  await loginAsHost(host);
+  await host.goto("/");
+  await host.getByRole("button", { name: "Team 1" }).click();
+  await host.getByRole("button", { name: "Team 2" }).click();
+
+  await host.getByRole("combobox").click();
+  await host.getByRole("option", { name: /Test Board/ }).click();
+
+  await host.getByRole("button", { name: /Game Rules & Settings/ }).click();
+  await host.getByLabel("Wrong Answer Penalty").click();
+  await host.getByRole("option", { name: "Half value (−50%)" }).click();
+  await host.getByLabel("Point Multiplier").click();
+  await host.getByRole("option", { name: "2× (Double)" }).click();
+  await host.getByRole("switch", { name: "Steal / Pass on Wrong" }).click();
+
+  await host.getByRole("button", { name: "Start Game" }).click();
+  await expect(host).toHaveURL(/\/game\/[A-Z0-9]+\/host/);
+  const uniqueID = host.url().match(/\/game\/([A-Z0-9]+)\/host/)![1];
+
+  // 100-point row is now 200 because of 2x multiplier.
+  await expect(host.getByRole("button", { name: "200", exact: true }).first()).toBeVisible();
+
+  const tv = await openTv(browser, uniqueID);
+  const p1 = await openBuzzer(browser, uniqueID, "Team 1");
+  const p2 = await openBuzzer(browser, uniqueID, "Team 2");
+
+  await host.getByRole("button", { name: "200", exact: true }).first().click();
+  await p1.page.getByRole("button", { name: "Buzz" }).click({ force: true });
+  await expect(host.getByTestId("host-buzz-queue")).toContainText("Team 1");
+  await p2.page.getByRole("button", { name: "Buzz" }).click({ force: true });
+  await expect(host.getByTestId("host-buzz-queue")).toContainText("Team 2");
+
+  // Team 1 answers wrong -> half penalty (-100) and passed to Team 2 (#1 in queue).
+  await host.getByRole("button", { name: /Wrong: take points from Team 1/ }).click();
+  await expect(host.getByTestId("host-score-Team 1")).toHaveText("-100");
+  await expect(host.getByTestId("host-buzz-queue").locator("li").first()).toContainText("Team 2");
+
+  // Team 2 answers right -> +200.
+  await host.getByRole("button", { name: "Correct: add points to Team 2" }).click();
+  await expect(host.getByTestId("host-score-Team 2")).toHaveText("200");
+  await expect(tv.page.getByTestId("tv-score-Team 2")).toHaveText("200");
+
+  await Promise.all([tv.ctx.close(), p1.ctx.close(), p2.ctx.close()]);
+});

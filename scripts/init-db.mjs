@@ -208,6 +208,8 @@ const COLLECTIONS = [
       { name: "allInPhase", type: "text" },
       { name: "allIn", type: "json", maxSize: 0 },
       { name: "gameOver", type: "bool" },
+      { name: "settings", type: "json", maxSize: 0 },
+      { name: "passedTeams", type: "json", maxSize: 0 },
     ],
     indexes: [
       "CREATE UNIQUE INDEX `idx_games_unique_id` ON `games` (`uniqueID`)",

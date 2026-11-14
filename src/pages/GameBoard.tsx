@@ -15,7 +15,7 @@ import ReconnectingBadge from "@/components/ReconnectingBadge";
 import { loadGameState } from "@/lib/loadGameState";
 import { playBuzzerTone } from "@/lib/sound";
 import type { BoardQuestion, GameRecord, GameTeam } from "@/lib/pbTypes";
-import { scoreOf } from "@/lib/scoring";
+import { effectiveBoardValues, scoreOf } from "@/lib/scoring";
 
 export default function GameBoard() {
   const { uniqueID } = useParams();
@@ -26,14 +26,13 @@ export default function GameBoard() {
   const [usedQuestions, setUsedQuestions] = useState<string[]>([]);
   const [notFound, setNotFound] = useState(false);
 
-  const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
-  const values = Array.from({ length: rowCount }, (_, i) => (i + 1) * 100);
-
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
   const [buzzRound, setBuzzRound] = useState(0);
   const { connected, reloadKey } = useLiveConnection();
   const [live, setLive] = useState<GameRecord | null>(null);
+  const rowCount = Math.max(0, ...questions.map((qs) => qs.length));
+  const values = effectiveBoardValues(live?.values, rowCount, live?.settings);
   const allInPhase: string = live?.allInPhase || "";
   const wagers = useWagers(
     gameId ?? undefined,
@@ -42,7 +41,9 @@ export default function GameBoard() {
   );
   const wildcard =
     live?.wildcard && live.wildcard.question === live.currentActiveQuestion ? live.wildcard : null;
-  const buzzerQueue = useBuzzes(gameId ?? undefined, buzzRound, reloadKey);
+  const rawBuzzerQueue = useBuzzes(gameId ?? undefined, buzzRound, reloadKey);
+  const passedTeams = live?.passedTeams || [];
+  const buzzerQueue = rawBuzzerQueue.filter((b) => !passedTeams.includes(b.team));
   const [hostForceShowQuestion, setHostForceShowQuestion] = useState(false);
 
   const activeQuestion = useMemo(() => {
